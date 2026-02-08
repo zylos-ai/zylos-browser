@@ -4,6 +4,12 @@ General-purpose browser automation capability for Zylos agents. Enables Claude t
 
 **Note**: This is a generic browser capability component. Platform-specific logic (Twitter posting, Xiaohongshu publishing, etc.) belongs in their own components that depend on zylos-browser.
 
+## Design Principles
+
+- **Generic toolbox, not platform framework**: zylos-browser provides general-purpose browser automation building blocks. It does not include platform-specific adapters or abstraction layers.
+- **Compose, don't abstract**: Platform components (zylos-twitter, zylos-xhs, etc.) freely combine the modules they need — Core Control for complex workflows, Sequence Runner for simple repeatable actions, Site Knowledge for learning. No forced adapter interface.
+- **Defer abstraction (Rule of Three)**: Common patterns across platform components will be extracted into shared abstractions only after 2-3 concrete implementations exist. Premature abstraction limits flexibility.
+
 ## Architecture
 
 ```
