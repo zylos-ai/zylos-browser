@@ -1,16 +1,18 @@
 # zylos-browser
 
-Browser automation capability for Zylos agents. Enables Claude to control a browser for web interactions, data extraction, and automated workflows.
+General-purpose browser automation capability for Zylos agents. Enables Claude to control a browser for web interactions, data extraction, and automated workflows.
+
+**Note**: This is a generic browser capability component. Platform-specific logic (Twitter posting, Xiaohongshu publishing, etc.) belongs in their own components that depend on zylos-browser.
 
 ## Architecture
 
 ```
-Claude (via SKILL.md)
-    |
+Platform components (zylos-twitter, zylos-xhs, ...)
+    |  depend on
     v
 zylos-browser
     |
-    +-- agent-browser CLI (core engine, Playwright/CDP)
+    +-- Core Browser Control (via agent-browser CLI)
     |     - Page navigation, element interaction, screenshots
     |     - Accessibility tree snapshots with refs
     |     - CDP mode for connecting to existing Chrome
@@ -21,16 +23,16 @@ zylos-browser
     |     - Element selector caching
     |     - Success rate tracking per task
     |
-    +-- Sequence Runner (workflow automation)
+    +-- Sequence Runner (workflow engine)
     |     - Pre-recorded action sequences (JSON)
     |     - Variable interpolation
     |     - Fallback targeting with alternatives
     |     - Precondition checking
     |
-    +-- Platform Adapters (domain-specific)
-          - Twitter/X: post, reply, like, retweet, bookmark
-          - Xiaohongshu: multi-page posts, text-to-image
-          - (extensible for more platforms)
+    +-- Task Analysis (self-healing)
+          - Post-task success/failure detection
+          - Gotcha extraction from failures
+          - Knowledge base auto-update
 ```
 
 ## Capabilities
@@ -60,96 +62,71 @@ Wraps [agent-browser](https://github.com/vercel-labs/agent-browser) CLI as the u
 
 ### 2. Site Knowledge (Autonomous Learning)
 
-Persistent per-domain knowledge store that helps the agent learn from past interactions.
+Persistent per-domain knowledge store that helps the agent learn from past browser interactions.
 
 | Feature | Description |
 |---------|-------------|
-| **Gotcha Tracking** | Records common failure patterns per site (e.g., "Twitter's reply button changes ref after page reload") |
+| **Gotcha Tracking** | Records common failure patterns per site (e.g., "button ref changes after page reload") |
 | **Element Cache** | Remembers reliable selectors for key elements per URL pattern |
 | **Task Success Tracking** | Tracks which approaches work for specific tasks on specific sites |
 | **Path Pattern Matching** | Knowledge applies to URL patterns (e.g., `/*/status/*` matches all tweet pages) |
 
 **Storage**: `~/zylos/components/browser/knowledge/{domain}.json`
 
-### 3. Sequence Runner (Workflow Automation)
+**How it works**: Before performing a browser task on a domain, Claude loads that domain's knowledge file to understand known pitfalls and reliable selectors. After task completion, new learnings are saved back.
 
-Pre-recorded browser action sequences for common, repetitive tasks.
+### 3. Sequence Runner (Workflow Engine)
+
+General-purpose engine for running pre-recorded browser action sequences. Platform components provide their own sequence files; zylos-browser provides the execution engine.
 
 | Feature | Description |
 |---------|-------------|
 | **JSON Sequences** | Define workflows as JSON with steps, variables, and verification |
-| **Variable Interpolation** | `{{reply_text}}` syntax for parameterized sequences |
-| **Fallback Targeting** | Multiple selector strategies per action (primary + 2-3 alternatives) |
+| **Variable Interpolation** | `{{variable_name}}` syntax for parameterized sequences |
+| **Fallback Targeting** | Multiple selector strategies per action (primary + alternatives) |
 | **Preconditions** | Check URL pattern and required elements before running |
 | **Verification** | Verify success after each action with configurable timeout |
 
-**Example sequence** (Twitter reply):
+**Example sequence**:
 ```json
 {
-  "name": "reply",
+  "name": "fill-contact-form",
   "preconditions": {
-    "url_pattern": "x.com/*/status/*"
+    "url_pattern": "example.com/contact"
   },
   "variables": {
-    "reply_text": { "type": "string", "required": true }
+    "name": { "type": "string", "required": true },
+    "message": { "type": "string", "required": true }
   },
   "steps": [
-    { "action": "click", "target": "@reply-button", "fallbacks": ["[data-testid='reply']"] },
-    { "action": "type", "target": "@reply-textbox", "value": "{{reply_text}}" },
-    { "action": "click", "target": "@reply-submit" }
+    { "action": "fill", "target": "@name-input", "value": "{{name}}" },
+    { "action": "fill", "target": "@message-input", "value": "{{message}}" },
+    { "action": "click", "target": "@submit-button" }
   ]
 }
 ```
 
-**Built-in sequences:**
-- Twitter/X: reply, like, retweet, bookmark
-- Xiaohongshu: post, multi-page post
-- (extensible: add new sequences as JSON files)
+Sequence files are stored in `~/zylos/components/browser/sequences/` and can be added by platform components or by the user.
 
-### 4. Platform Adapters
+### 4. Task Analysis (Self-Healing)
 
-Domain-specific logic for popular platforms, handling their unique UI patterns.
-
-#### Twitter/X Adapter
-| Action | Description |
-|--------|-------------|
-| `post` | Create a new tweet |
-| `reply` | Reply to a tweet |
-| `like` | Like a tweet |
-| `retweet` | Retweet |
-| `bookmark` | Bookmark a tweet |
-| `thread` | Post a multi-tweet thread |
-
-#### Xiaohongshu (RedNote) Adapter
-| Action | Description |
-|--------|-------------|
-| `post` | Create a single-page post |
-| `multipost` | Create multi-page post from content |
-| `detect-page` | Detect current page state |
-
-#### Adding New Adapters
-Adapters are plain JS modules that combine sequences + site knowledge for a specific platform. New platforms can be added by:
-1. Creating a sequence JSON for each action
-2. Adding site knowledge entries
-3. (Optional) Adding a platform adapter module for complex logic
-
-### 5. Task Analysis (Self-Healing)
-
-Post-task analysis that helps the agent improve over time.
+Post-task analysis that helps the agent improve browser automation over time.
 
 | Feature | Description |
 |---------|-------------|
-| **Success/Failure Detection** | Analyze task output to determine success |
+| **Success/Failure Detection** | Analyze task output to determine if the browser action succeeded |
 | **Gotcha Extraction** | Extract lessons from failures and save to site knowledge |
-| **Selector Updates** | Update cached selectors when UI changes |
+| **Selector Updates** | Update cached selectors when UI changes are detected |
 | **Retry Guidance** | Suggest alternative approaches for failed tasks |
+
+This creates a feedback loop: execute task -> analyze result -> update knowledge -> next execution is smarter.
 
 ## Interface
 
 ### CLI Commands (for Claude)
 
 ```bash
-# Core browser control (via agent-browser)
+# Core browser control (delegates to agent-browser)
 zylos-browser open <url>
 zylos-browser snapshot [-i] [-c]
 zylos-browser click <ref|selector>
@@ -163,21 +140,14 @@ zylos-browser sequences                    # List available sequences
 # Site knowledge
 zylos-browser knowledge <domain>           # View knowledge for domain
 zylos-browser knowledge add-gotcha <domain> <gotcha>
-
-# Platform shortcuts
-zylos-browser twitter reply <tweet-url> <text>
-zylos-browser twitter post <text>
-zylos-browser xhs post <content-file>
 ```
 
-### C4 Integration
+### For Platform Components
 
-When installed as a zylos component, Claude can use browser capabilities through natural language via C4 channels:
-
-```
-User: "Post this on Twitter: Just shipped zylos-browser v0.1.0!"
-Claude: [uses zylos-browser twitter post "Just shipped zylos-browser v0.1.0!"]
-```
+Platform components (e.g., zylos-twitter) that depend on zylos-browser can:
+1. Register their own sequence files in `~/zylos/components/browser/sequences/<domain>/`
+2. Use the sequence runner API to execute workflows
+3. Leverage site knowledge for their target domains
 
 ## Requirements
 
@@ -194,15 +164,9 @@ Claude: [uses zylos-browser twitter post "Just shipped zylos-browser v0.1.0!"]
 ├── config.json          # Component configuration
 ├── knowledge/           # Per-domain site knowledge
 │   ├── x.com.json
-│   ├── xiaohongshu.com.json
 │   └── ...
-├── sequences/           # Action sequences
-│   ├── x.com/
-│   │   ├── reply.json
-│   │   ├── like.json
-│   │   └── ...
-│   └── xiaohongshu.com/
-│       └── post.json
+├── sequences/           # Action sequences (from platform components or user)
+│   └── ...
 └── logs/
     ├── out.log
     └── error.log
