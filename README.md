@@ -22,7 +22,7 @@
 - **Browse the web** — your AI agent navigates, clicks, fills forms, and extracts content from any website
 - **See like a human** — accessibility tree snapshots let the agent understand page structure, no brittle selectors
 - **Learn from mistakes** — per-domain knowledge store tracks gotchas and adapts over time
-- **Your browser, your logins** — connect to your own Chrome via CDP, reuse existing sessions without re-authenticating
+- **Secure by design** — log in via VNC, the agent reuses your sessions, credentials stay on your own server
 
 ## Getting Started
 
