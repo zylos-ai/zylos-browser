@@ -9,6 +9,10 @@
   "bin": {
     "zylos-browser": "src/cli.js"
   },
+  "homepage": "https://github.com/zylos-ai/zylos-browser#readme",
+  "bugs": {
+    "url": "https://github.com/zylos-ai/zylos-browser/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zylos-ai/zylos-browser.git"
@@ -19,8 +23,11 @@
     "automation",
     "agent"
   ],
-  "author": "zylos-ai",
+  "author": "Zylos AI",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "playwright-core": "^1.57.0"
   }

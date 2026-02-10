@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.0-beta.2 (2026-02-10)
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [0.1.0-beta.2] - 2026-02-10
 
 ### Fixed
 - **Auto-install dependencies**: post-install hook now auto-installs missing apt packages (xvfb, x11vnc, websockify) instead of only reporting them
@@ -9,9 +14,7 @@
 ### Changed
 - SKILL.md: added "Important" section — always use `zylos-browser display vnc-url` for noVNC URL, never construct manually
 
----
-
-## 0.1.0-beta.1 (2026-02-10)
+## [0.1.0-beta.1] - 2026-02-10
 
 ### Fixed
 - **VNC password authentication**: Replace `-nopw` with `-rfbauth` using auto-generated password file
@@ -24,9 +27,7 @@
 - VNC password auto-generation in post-install hook
 - Auto-start display infrastructure when all dependencies are present
 
----
-
-## 0.1.0 (2026-02-10)
+## [0.1.0] - 2026-02-10
 
 Initial release.
 
