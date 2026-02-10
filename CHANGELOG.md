@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-beta.2 (2026-02-10)
+
+### Fixed
+- **Auto-install dependencies**: post-install hook now auto-installs missing apt packages (xvfb, x11vnc, websockify) instead of only reporting them
+- **Domain detection**: `getVNCUrl()` reads domain from `~/zylos/.zylos/config.json` instead of `.env`, fixing incorrect VNC URLs
+
+### Changed
+- SKILL.md: added "Important" section — always use `zylos-browser display vnc-url` for noVNC URL, never construct manually
+
+---
+
 ## 0.1.0-beta.1 (2026-02-10)
 
 ### Fixed
