@@ -76,10 +76,10 @@ export async function getDisplayStatus() {
   // noVNC runs as part of zylos-vnc (websockify), check port
   let novnc = false;
   if (vnc) {
-    const novncPort = config.vnc?.novnc_port ?? 6080;
+    const novncPort = Number(config.vnc?.novnc_port ?? 6080);
     try {
-      await execFile('bash', ['-c', `ss -tlnp | grep -q :${novncPort}`], { timeout: 5000 });
-      novnc = true;
+      const { stdout: ssOutput } = await execFile('ss', ['-tlnp'], { timeout: 5000 });
+      novnc = ssOutput.includes(`:${novncPort}`);
     } catch {
       // Port not listening
     }
@@ -108,9 +108,13 @@ export function getVNCUrl(config) {
  */
 export async function startVNC(options = {}) {
   const config = getConfig();
-  const displayNum = options.displayNumber ?? config.display?.number ?? 99;
-  const vncPort = options.vncPort ?? config.vnc?.port ?? 5900;
-  const novncPort = options.novncPort ?? config.vnc?.novnc_port ?? 6080;
+  const displayNum = Number(options.displayNumber ?? config.display?.number ?? 99);
+  const vncPort = Number(options.vncPort ?? config.vnc?.port ?? 5900);
+  const novncPort = Number(options.novncPort ?? config.vnc?.novnc_port ?? 6080);
+
+  if (!Number.isInteger(displayNum) || !Number.isInteger(vncPort) || !Number.isInteger(novncPort)) {
+    throw new Error('Invalid display/VNC port configuration — must be integers');
+  }
 
   const isRunning = await isPM2Running('zylos-vnc');
   if (isRunning) {

@@ -109,7 +109,7 @@ export function saveConfig(newConfig) {
   try {
     fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(newConfig, null, 2));
-    config = newConfig;
+    config = deepMerge(DEFAULT_CONFIG, newConfig);
   } catch (err) {
     console.error(`[browser] Failed to save config: ${err.message}`);
     throw err;

@@ -192,6 +192,10 @@ function loadSequence(name) {
     throw new Error(`Sequences directory not found: ${SEQUENCES_DIR}`);
   }
 
+  if (name.includes('..') || path.isAbsolute(name)) {
+    throw new Error(`Invalid sequence name: ${name}`);
+  }
+
   const possiblePaths = [
     path.join(SEQUENCES_DIR, name),
     path.join(SEQUENCES_DIR, `${name}.json`)
@@ -199,9 +203,9 @@ function loadSequence(name) {
 
   // Also search in domain subdirectories
   try {
-    const dirs = fs.readdirSync(SEQUENCES_DIR).filter(f =>
-      fs.statSync(path.join(SEQUENCES_DIR, f)).isDirectory()
-    );
+    const dirs = fs.readdirSync(SEQUENCES_DIR, { withFileTypes: true })
+      .filter(f => f.isDirectory())
+      .map(f => f.name);
     for (const dir of dirs) {
       possiblePaths.push(path.join(SEQUENCES_DIR, dir, name));
       possiblePaths.push(path.join(SEQUENCES_DIR, dir, `${name}.json`));
@@ -382,22 +386,21 @@ export function listSequences() {
   function scanDir(dir, prefix = '') {
     let entries;
     try {
-      entries = fs.readdirSync(dir);
+      entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
 
     for (const entry of entries) {
-      const fullPath = path.join(dir, entry);
-      const stat = fs.statSync(fullPath);
+      const fullPath = path.join(dir, entry.name);
 
-      if (stat.isDirectory()) {
-        scanDir(fullPath, prefix ? `${prefix}/${entry}` : entry);
-      } else if (entry.endsWith('.json')) {
+      if (entry.isDirectory()) {
+        scanDir(fullPath, prefix ? `${prefix}/${entry.name}` : entry.name);
+      } else if (entry.name.endsWith('.json')) {
         try {
           const seq = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
           sequences.push({
-            name: prefix ? `${prefix}/${entry.replace(/\.json$/, '')}` : entry.replace(/\.json$/, ''),
+            name: prefix ? `${prefix}/${entry.name.replace(/\.json$/, '')}` : entry.name.replace(/\.json$/, ''),
             domain: seq.domain || seq.site,
             description: seq.description,
             variables: seq.variables

@@ -255,7 +255,7 @@ async function knowledgeCmd(cmdArgs) {
       if (added) {
         console.log(`Gotcha added to ${domain}.`);
       } else {
-        console.log('Gotcha already exists or domain has no knowledge file.');
+        console.log('Gotcha already exists or max limit reached.');
       }
       break;
     }

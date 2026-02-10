@@ -141,7 +141,8 @@ export function applyLearnings(url, analysis) {
 
   // Record task result
   if (analysis.updateTask) {
-    const updated = recordTaskResult(url, analysis.updateTask, !!analysis.success);
+    const success = analysis.success === true || analysis.success === 'success';
+    const updated = recordTaskResult(url, analysis.updateTask, success);
     if (updated) results.taskUpdated = true;
   }
 
