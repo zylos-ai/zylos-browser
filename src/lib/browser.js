@@ -14,7 +14,6 @@ import { getConfig } from './config.js';
 import {
   BrowserError,
   TimeoutError,
-  ElementNotFoundError,
   ConnectionError,
   DependencyError
 } from './errors.js';
@@ -24,31 +23,33 @@ const execFile = promisify(execFileCb);
 export class Browser {
   constructor(options = {}) {
     const config = getConfig();
-    this.cdpPort = options.cdpPort || config.cdp_port || 9222;
+    this.cdpPort = options.cdpPort ?? config.cdp_port ?? 9222;
     this.headless = options.headless ?? config.headless ?? false;
-    this.display = options.display || `:${config.display?.number || 99}`;
-    this.timeout = options.timeout || config.sequences?.timeout_default || 30000;
+    this.display = options.display ?? `:${config.display?.number ?? 99}`;
+    this.timeout = options.timeout ?? config.sequences?.timeout_default ?? 30000;
     this._playwright = null;
     this._cdpBrowser = null;
   }
 
   /**
    * Run an agent-browser command
-   * @param {string} command - The command and args (e.g. 'snapshot -i')
+   * @param {string|string[]} command - Command string or args array
    * @param {object} options - Override timeout etc.
    * @returns {string} stdout
    */
   async _exec(command, options = {}) {
-    const timeout = options.timeout || this.timeout;
+    const timeout = options.timeout ?? this.timeout;
     const env = {
       ...process.env,
       DISPLAY: this.display
     };
 
-    const args = ['--cdp', String(this.cdpPort), ...this._parseArgs(command)];
+    const cmdArgs = Array.isArray(command) ? command : this._parseArgs(command);
+    const cmdStr = Array.isArray(command) ? command.join(' ') : command;
+    const args = ['--cdp', String(this.cdpPort), ...cmdArgs];
 
     try {
-      const { stdout, stderr } = await execFile('agent-browser', args, {
+      const { stdout } = await execFile('agent-browser', args, {
         timeout,
         env,
         maxBuffer: 1024 * 1024 * 5 // 5MB
@@ -56,8 +57,8 @@ export class Browser {
       return stdout.trim();
     } catch (err) {
       if (err.killed || err.signal === 'SIGTERM') {
-        throw new TimeoutError(`Command timed out after ${timeout}ms: agent-browser ${command}`, {
-          command,
+        throw new TimeoutError(`Command timed out after ${timeout}ms: agent-browser ${cmdStr}`, {
+          command: cmdStr,
           timeout
         });
       }
@@ -73,9 +74,9 @@ export class Browser {
       }
 
       throw new BrowserError(
-        `agent-browser ${command} failed: ${stderr || stdout || err.message}`,
+        `agent-browser ${cmdStr} failed: ${stderr || stdout || err.message}`,
         'EXEC_ERROR',
-        { command, exitCode: err.code, stderr, stdout }
+        { command: cmdStr, exitCode: err.code, stderr, stdout }
       );
     }
   }
@@ -115,7 +116,7 @@ export class Browser {
   // --- Navigation ---
 
   async open(url) {
-    return this._exec(`open ${url}`);
+    return this._exec(['open', url]);
   }
 
   async reload() {
@@ -140,39 +141,39 @@ export class Browser {
     const args = ['snapshot'];
     if (options.interactive) args.push('-i');
     if (options.compact) args.push('-c');
-    return this._exec(args.join(' '));
+    return this._exec(args);
   }
 
   // --- Interaction (via agent-browser) ---
 
   async click(ref) {
-    return this._exec(`click ${ref}`);
+    return this._exec(['click', ref]);
   }
 
   async type(ref, text) {
-    return this._exec(`type ${ref} "${text.replace(/"/g, '\\"')}"`);
+    return this._exec(['type', ref, text]);
   }
 
   async fill(ref, text) {
-    return this._exec(`fill ${ref} "${text.replace(/"/g, '\\"')}"`);
+    return this._exec(['fill', ref, text]);
   }
 
   async select(ref, value) {
-    return this._exec(`select ${ref} "${value.replace(/"/g, '\\"')}"`);
+    return this._exec(['select', ref, value]);
   }
 
   async check(ref) {
-    return this._exec(`check ${ref}`);
+    return this._exec(['check', ref]);
   }
 
   async scroll(direction, amount) {
     const args = ['scroll', direction];
     if (amount) args.push(String(amount));
-    return this._exec(args.join(' '));
+    return this._exec(args);
   }
 
   async keypress(key) {
-    return this._exec(`keypress ${key}`);
+    return this._exec(['keypress', key]);
   }
 
   // --- Visual ---
@@ -180,29 +181,29 @@ export class Browser {
   async screenshot(filePath) {
     const args = ['screenshot'];
     if (filePath) args.push(filePath);
-    return this._exec(args.join(' '));
+    return this._exec(args);
   }
 
   // --- Tab Management ---
 
   async tabs() {
-    return this._exec('tabs');
+    return this._exec(['tabs']);
   }
 
   async switchTab(index) {
-    return this._exec(`tab ${index}`);
+    return this._exec(['tab', String(index)]);
   }
 
   async newTab(url) {
     const args = ['newtab'];
     if (url) args.push(url);
-    return this._exec(args.join(' '));
+    return this._exec(args);
   }
 
   async closeTab(index) {
     const args = ['closetab'];
     if (index !== undefined) args.push(String(index));
-    return this._exec(args.join(' '));
+    return this._exec(args);
   }
 
   // --- Advanced (Playwright CDP, lazy-loaded) ---
@@ -286,7 +287,7 @@ export class Browser {
     if (cdpPort) this.cdpPort = cdpPort;
     if (headless !== undefined) this.headless = headless;
     // Verify connection by running a simple command
-    await this._exec('snapshot -c', { timeout: 10000 });
+    await this._exec(['snapshot', '-c'], { timeout: 10000 });
   }
 
   async disconnect() {

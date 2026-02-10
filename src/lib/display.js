@@ -35,7 +35,7 @@ async function isPM2Running(name) {
  */
 export async function ensureDisplay(options = {}) {
   const config = getConfig();
-  const displayNum = options.displayNumber || config.display?.number || 99;
+  const displayNum = options.displayNumber ?? config.display?.number ?? 99;
   const resolution = options.resolution || config.display?.resolution || '1280x1024x24';
   const display = `:${displayNum}`;
 
@@ -66,7 +66,7 @@ export async function ensureDisplay(options = {}) {
  */
 export async function getDisplayStatus() {
   const config = getConfig();
-  const display = `:${config.display?.number || 99}`;
+  const display = `:${config.display?.number ?? 99}`;
 
   const [xvfb, vnc] = await Promise.all([
     isPM2Running('zylos-xvfb'),
@@ -76,7 +76,7 @@ export async function getDisplayStatus() {
   // noVNC runs as part of zylos-vnc (websockify), check port
   let novnc = false;
   if (vnc) {
-    const novncPort = config.vnc?.novnc_port || 6080;
+    const novncPort = config.vnc?.novnc_port ?? 6080;
     try {
       await execFile('bash', ['-c', `ss -tlnp | grep -q :${novncPort}`], { timeout: 5000 });
       novnc = true;
@@ -96,8 +96,7 @@ export async function getDisplayStatus() {
  */
 export function getVNCUrl(config) {
   config = config || getConfig();
-  const novncPort = config.vnc?.novnc_port || 6080;
-  // Use the standard zylos noVNC URL pattern
+  // URL is proxied through nginx — port is not in the URL
   return `https://zylos10.jinglever.com/vnc/vnc.html?path=vnc/websockify&autoconnect=true`;
 }
 
@@ -109,9 +108,9 @@ export function getVNCUrl(config) {
  */
 export async function startVNC(options = {}) {
   const config = getConfig();
-  const displayNum = options.displayNumber || config.display?.number || 99;
-  const vncPort = options.vncPort || config.vnc?.port || 5900;
-  const novncPort = options.novncPort || config.vnc?.novnc_port || 6080;
+  const displayNum = options.displayNumber ?? config.display?.number ?? 99;
+  const vncPort = options.vncPort ?? config.vnc?.port ?? 5900;
+  const novncPort = options.novncPort ?? config.vnc?.novnc_port ?? 6080;
 
   const isRunning = await isPM2Running('zylos-vnc');
   if (isRunning) {
@@ -159,7 +158,7 @@ export async function stopVNC() {
  *
  * @param {string} reason - Why intervention is needed
  * @param {string} notifyChannel - Channel to notify (default: browser)
- * @returns {Promise<void>} Resolves when user signals completion
+ * @returns {Promise<void>} Resolves after sending notification (fire-and-forget)
  */
 export async function requestHumanIntervention(reason, notifyChannel = 'browser') {
   const config = getConfig();

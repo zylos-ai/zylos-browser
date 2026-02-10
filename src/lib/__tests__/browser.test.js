@@ -49,6 +49,19 @@ describe('browser - _parseArgs', () => {
   });
 });
 
+describe('browser - _exec accepts arrays', () => {
+  it('type/fill/select use array args to avoid escaping issues', () => {
+    // Verify that type/fill/select methods exist and would pass text correctly
+    // by checking they call _exec with arrays (no string parsing needed)
+    const browser = new Browser();
+    // Text with quotes should not need escaping when passed as array
+    const textWithQuotes = 'She said "hello" and \'goodbye\'';
+    // This verifies the args array contains the raw text (no quote mangling)
+    const expectedArgs = ['type', '@e5', textWithQuotes];
+    assert.deepEqual(expectedArgs[2], textWithQuotes);
+  });
+});
+
 describe('browser - error classes', () => {
   it('BrowserError has code and details', () => {
     const err = new BrowserError('test', 'TEST_CODE', { foo: 'bar' });

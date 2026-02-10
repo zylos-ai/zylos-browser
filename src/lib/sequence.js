@@ -210,8 +210,13 @@ function loadSequence(name) {
     // Ignore read errors
   }
 
+  const realSeqDir = fs.realpathSync(SEQUENCES_DIR);
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
+      const realPath = fs.realpathSync(p);
+      if (!realPath.startsWith(realSeqDir + path.sep) && realPath !== realSeqDir) {
+        throw new Error(`Sequence path escapes sequences directory: ${name}`);
+      }
       return JSON.parse(fs.readFileSync(p, 'utf8'));
     }
   }
