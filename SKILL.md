@@ -43,6 +43,7 @@ General-purpose browser automation capability for Zylos agents.
 
 ## Important
 
+- **PATH setup**: Before first use in a session, run: `export PATH="$HOME/zylos/bin:$PATH"`
 - **noVNC URL**: Always use `zylos-browser display vnc-url` to get the correct noVNC URL. Do NOT construct the URL manually — it includes required WebSocket path parameters.
 - **Display must be started** before any browser commands: `zylos-browser display start`
 
