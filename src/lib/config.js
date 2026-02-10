@@ -83,11 +83,11 @@ export function loadConfig() {
       const fileConfig = JSON.parse(content);
       config = deepMerge(DEFAULT_CONFIG, fileConfig);
     } else {
-      config = { ...DEFAULT_CONFIG };
+      config = deepMerge({}, DEFAULT_CONFIG);
     }
   } catch (err) {
     console.error(`[browser] Failed to load config: ${err.message}`);
-    config = { ...DEFAULT_CONFIG };
+    config = deepMerge({}, DEFAULT_CONFIG);
   }
   return config;
 }

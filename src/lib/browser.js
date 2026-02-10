@@ -68,7 +68,7 @@ export class Browser {
       const stderr = err.stderr?.toString() || '';
       const stdout = err.stdout?.toString() || '';
 
-      if (stderr.includes('ECONNREFUSED') || stderr.includes('connect')) {
+      if (stderr.includes('ECONNREFUSED') || stderr.includes('connection refused') || stderr.includes('connect ECONNREFUSED')) {
         throw new ConnectionError(`CDP connection failed on port ${this.cdpPort}. Is Chrome running?`);
       }
 

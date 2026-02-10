@@ -76,9 +76,9 @@ function interpolate(str, variables) {
     if (variables[key] === undefined) {
       throw new Error(`Missing variable: ${key}`);
     }
-    // Escape special characters to prevent injection
-    const val = String(variables[key]);
-    return val.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    // No escaping here — browser.type()/fill() handle CLI escaping.
+    // Variables are only used in value fields, not action/target fields.
+    return String(variables[key]);
   });
 }
 
@@ -292,16 +292,6 @@ export async function runSequence(name, variables = {}, browserOpts = {}) {
 
   const browser = new Browser(browserOpts);
   const steps = sequence.steps || sequence.actions || [];
-
-  // Check preconditions
-  if (sequence.preconditions?.url_pattern) {
-    try {
-      const snapshotOutput = await browser.snapshot({ compact: true });
-      // URL pattern check would need a dedicated command — skip for now
-    } catch {
-      // Continue anyway
-    }
-  }
 
   // Get initial snapshot
   let elements;

@@ -22,7 +22,6 @@
   "author": "zylos-ai",
   "license": "MIT",
   "dependencies": {
-    "dotenv": "^16.4.5",
     "playwright-core": "^1.57.0"
   }
 }
