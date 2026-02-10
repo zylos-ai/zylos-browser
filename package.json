@@ -28,13 +28,6 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "files": [
-    "src/",
-    "hooks/",
-    "LICENSE",
-    "README.md",
-    "SKILL.md"
-  ],
   "dependencies": {
     "playwright-core": "^1.57.0"
   }
