@@ -27,6 +27,7 @@ config:
 
 bin:
   zylos-browser: src/cli.js
+  agent-browser: node_modules/.bin/agent-browser
 
 http_routes:
   - path: /vnc/*
@@ -48,10 +49,9 @@ General-purpose browser automation capability for Zylos agents.
 
 ## Dependencies
 
-- agent-browser CLI (globally installed)
-- Chrome/Chromium with CDP enabled
-- Xvfb (for headless display)
-- x11vnc + websockify (for VNC/noVNC access, auto-installed by post-install)
+- agent-browser CLI (installed as npm dependency, linked to ~/zylos/bin/)
+- Chrome/Chromium with CDP enabled (auto-installed by post-install)
+- Xvfb, x11vnc, websockify (auto-installed by post-install)
 
 ## When to Use
 

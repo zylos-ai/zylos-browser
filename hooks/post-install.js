@@ -53,13 +53,40 @@ if (!fs.existsSync(configPath)) {
 }
 
 // 3. Check and auto-install system dependencies
+
+/**
+ * Install Chrome/Chromium. Tries multiple methods:
+ * 1. apt-get install chromium-browser (Debian/Ubuntu)
+ * 2. Google Chrome .deb package (fallback)
+ */
+function installChrome() {
+  // Try chromium-browser via apt first
+  try {
+    execSync('sudo apt-get install -y chromium-browser', { stdio: 'pipe', timeout: 180000 });
+    return;
+  } catch {
+    console.log('    chromium-browser apt install failed, trying Google Chrome...');
+  }
+
+  // Fallback: Google Chrome stable .deb
+  const debUrl = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb';
+  const debPath = '/tmp/google-chrome-stable.deb';
+  execSync(`wget -q -O ${debPath} ${debUrl}`, { stdio: 'pipe', timeout: 120000 });
+  execSync(`sudo apt-get install -y ${debPath}`, { stdio: 'pipe', timeout: 120000 });
+  execSync(`rm -f ${debPath}`, { stdio: 'ignore' });
+}
+
 console.log('\nChecking dependencies...');
 const deps = [
-  { name: 'agent-browser', check: 'which agent-browser', install: 'npm install -g agent-browser', sudo: false },
-  { name: 'Chrome/Chromium', check: 'which google-chrome || which chromium-browser || which chromium', install: null, msg: 'Install Chrome or Chromium manually' },
-  { name: 'Xvfb', check: 'which Xvfb', install: 'sudo apt-get install -y xvfb', sudo: true },
-  { name: 'x11vnc', check: 'which x11vnc', install: 'sudo apt-get install -y x11vnc', sudo: true },
-  { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', sudo: true }
+  {
+    name: 'Chrome/Chromium',
+    check: 'which google-chrome-stable || which google-chrome || which chromium-browser || which chromium',
+    install: 'install-chrome',
+    required: true,
+  },
+  { name: 'Xvfb', check: 'which Xvfb', install: 'sudo apt-get install -y xvfb', required: true },
+  { name: 'x11vnc', check: 'which x11vnc', install: 'sudo apt-get install -y x11vnc', required: true },
+  { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', required: true },
 ];
 
 const missing = [];
@@ -68,23 +95,35 @@ for (const dep of deps) {
     execSync(dep.check, { stdio: 'ignore' });
     console.log(`  [OK] ${dep.name}`);
   } catch {
-    if (dep.install) {
-      console.log(`  [MISSING] ${dep.name} — installing...`);
-      try {
+    console.log(`  [MISSING] ${dep.name} — installing...`);
+    try {
+      if (dep.install === 'install-chrome') {
+        installChrome();
+      } else {
         execSync(dep.install, { stdio: 'pipe', timeout: 120000 });
-        // Verify installation
-        execSync(dep.check, { stdio: 'ignore' });
-        console.log(`  [OK] ${dep.name} (installed)`);
-        continue;
-      } catch (installErr) {
-        console.log(`  [FAILED] ${dep.name} — auto-install failed: ${installErr.message}`);
-        console.log(`           Manual: ${dep.install}`);
       }
-    } else {
-      console.log(`  [MISSING] ${dep.name} — ${dep.msg}`);
+      // Verify installation
+      execSync(dep.check, { stdio: 'ignore' });
+      console.log(`  [OK] ${dep.name} (installed)`);
+      continue;
+    } catch (installErr) {
+      console.log(`  [FAILED] ${dep.name} — auto-install failed: ${installErr.message}`);
     }
     missing.push(dep);
   }
+}
+
+// Bail early if any required dependency is missing
+if (missing.length > 0) {
+  console.log('\n========================================');
+  console.log('  Missing Dependencies');
+  console.log('========================================');
+  for (const dep of missing) {
+    console.log(`  - ${dep.name}`);
+  }
+  console.log('========================================');
+  console.error('\n[post-install] FAILED — required dependencies could not be installed.');
+  process.exit(1);
 }
 
 // 4. Generate VNC password if not exists
@@ -104,47 +143,17 @@ if (!fs.existsSync(vncPasswdFile)) {
   console.log('\nVNC password already exists, skipping.');
 }
 
-// 5. Check shared display infrastructure + auto-start if deps available
-console.log('\nChecking shared display infrastructure...');
+// 5. Auto-start display infrastructure (Xvfb + Chrome + VNC)
+console.log('\nStarting display infrastructure...');
 try {
-  const pm2List = execSync('pm2 jlist 2>/dev/null', { encoding: 'utf-8' });
-  const processes = JSON.parse(pm2List);
-
-  const xvfbRunning = processes.some(p => p.name === 'zylos-xvfb' && p.pm2_env?.status === 'online');
-  const vncRunning = processes.some(p => p.name === 'zylos-vnc' && p.pm2_env?.status === 'online');
-
-  console.log(`  Xvfb (zylos-xvfb): ${xvfbRunning ? 'running' : 'not running'}`);
-  console.log(`  VNC (zylos-vnc): ${vncRunning ? 'running' : 'not running'}`);
-
-  if (!xvfbRunning && missing.length === 0) {
-    console.log('\nAll dependencies present. Auto-starting display...');
-    try {
-      execSync('zylos-browser display start', { stdio: 'inherit', timeout: 30000 });
-    } catch {
-      console.log('  Auto-start failed. Start manually: zylos-browser display start');
-    }
-  } else if (!xvfbRunning) {
-    console.log('  Note: Start display with: zylos-browser display start');
-  }
+  execSync('zylos-browser display start', { stdio: 'inherit', timeout: 60000 });
 } catch {
-  console.log('  PM2 not available or no processes running.');
-  console.log('  Start display later with: zylos-browser display start');
+  console.log('  Auto-start failed. Start manually: zylos-browser display start');
 }
 
-// Summary
 console.log('\n[post-install] Complete!');
 
-if (missing.length > 0) {
-  console.log('\n========================================');
-  console.log('  Missing Dependencies');
-  console.log('========================================');
-  for (const dep of missing) {
-    console.log(`  ${dep.name}: ${dep.msg}`);
-  }
-  console.log('========================================');
-}
-
 console.log('\nQuick start:');
-console.log('  zylos-browser display start     # Start Xvfb + VNC');
+console.log('  zylos-browser display start     # Start Xvfb + Chrome + VNC');
 console.log('  zylos-browser open <url>         # Navigate to a URL');
 console.log('  zylos-browser snapshot -i        # Get interactive elements');

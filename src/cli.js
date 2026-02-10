@@ -290,22 +290,28 @@ async function displayCmd(cmdArgs) {
     case 'status': {
       const status = await display.getDisplayStatus();
       console.log('Display status:');
-      console.log(`  Xvfb:  ${status.xvfb ? 'running' : 'stopped'}`);
-      console.log(`  VNC:   ${status.vnc ? 'running' : 'stopped'}`);
-      console.log(`  noVNC: ${status.novnc ? 'running' : 'stopped'}`);
+      console.log(`  Xvfb:   ${status.xvfb ? 'running' : 'stopped'}`);
+      console.log(`  Chrome: ${status.chrome ? 'running' : 'stopped'}`);
+      console.log(`  VNC:    ${status.vnc ? 'running' : 'stopped'}`);
+      console.log(`  noVNC:  ${status.novnc ? 'running' : 'stopped'}`);
       console.log(`  DISPLAY: ${status.display}`);
       break;
     }
     case 'start': {
-      const result = await display.ensureDisplay();
-      console.log(`Display ready (DISPLAY=${result.display})`);
-      if (result.started) console.log('  Xvfb was started.');
+      const xvfb = await display.ensureDisplay();
+      console.log(`Display ready (DISPLAY=${xvfb.display})`);
+      if (xvfb.started) console.log('  Xvfb was started.');
+      const chrome = await display.ensureChrome();
+      console.log(`Chrome ready (CDP port ${chrome.cdpPort})`);
+      if (chrome.started) console.log('  Chrome was started.');
       const vnc = await display.startVNC();
       console.log(`VNC started on port ${vnc.vncPort}`);
       if (vnc.url) console.log(`noVNC: ${vnc.url}`);
       break;
     }
     case 'stop': {
+      await display.stopChrome();
+      console.log('Chrome stopped.');
       await display.stopVNC();
       console.log('VNC stopped.');
       break;
