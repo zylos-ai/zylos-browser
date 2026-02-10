@@ -52,14 +52,14 @@ if (!fs.existsSync(configPath)) {
   console.log('\nConfig already exists, skipping.');
 }
 
-// 3. Check system dependencies
+// 3. Check and auto-install system dependencies
 console.log('\nChecking dependencies...');
 const deps = [
-  { name: 'agent-browser', check: 'which agent-browser', msg: 'Install: npm install -g agent-browser' },
-  { name: 'Chrome/Chromium', check: 'which google-chrome || which chromium-browser || which chromium', msg: 'Install Chrome or Chromium' },
-  { name: 'Xvfb', check: 'which Xvfb', msg: 'Install: sudo apt install xvfb' },
-  { name: 'x11vnc', check: 'which x11vnc', msg: 'Install: sudo apt install x11vnc' },
-  { name: 'websockify (noVNC)', check: 'which websockify', msg: 'Install: sudo apt install websockify' }
+  { name: 'agent-browser', check: 'which agent-browser', install: 'npm install -g agent-browser', sudo: false },
+  { name: 'Chrome/Chromium', check: 'which google-chrome || which chromium-browser || which chromium', install: null, msg: 'Install Chrome or Chromium manually' },
+  { name: 'Xvfb', check: 'which Xvfb', install: 'sudo apt-get install -y xvfb', sudo: true },
+  { name: 'x11vnc', check: 'which x11vnc', install: 'sudo apt-get install -y x11vnc', sudo: true },
+  { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', sudo: true }
 ];
 
 const missing = [];
@@ -68,7 +68,21 @@ for (const dep of deps) {
     execSync(dep.check, { stdio: 'ignore' });
     console.log(`  [OK] ${dep.name}`);
   } catch {
-    console.log(`  [MISSING] ${dep.name} — ${dep.msg}`);
+    if (dep.install) {
+      console.log(`  [MISSING] ${dep.name} — installing...`);
+      try {
+        execSync(dep.install, { stdio: 'pipe', timeout: 120000 });
+        // Verify installation
+        execSync(dep.check, { stdio: 'ignore' });
+        console.log(`  [OK] ${dep.name} (installed)`);
+        continue;
+      } catch (installErr) {
+        console.log(`  [FAILED] ${dep.name} — auto-install failed: ${installErr.message}`);
+        console.log(`           Manual: ${dep.install}`);
+      }
+    } else {
+      console.log(`  [MISSING] ${dep.name} — ${dep.msg}`);
+    }
     missing.push(dep);
   }
 }

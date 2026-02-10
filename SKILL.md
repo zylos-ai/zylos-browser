@@ -1,6 +1,6 @@
 ---
 name: browser
-version: 0.1.0-beta.1
+version: 0.1.0-beta.2
 description: General-purpose browser automation capability
 type: capability
 
@@ -41,11 +41,17 @@ dependencies: []
 
 General-purpose browser automation capability for Zylos agents.
 
+## Important
+
+- **noVNC URL**: Always use `zylos-browser display vnc-url` to get the correct noVNC URL. Do NOT construct the URL manually — it includes required WebSocket path parameters.
+- **Display must be started** before any browser commands: `zylos-browser display start`
+
 ## Dependencies
 
 - agent-browser CLI (globally installed)
 - Chrome/Chromium with CDP enabled
 - Xvfb (for headless display)
+- x11vnc + websockify (for VNC/noVNC access, auto-installed by post-install)
 
 ## When to Use
 

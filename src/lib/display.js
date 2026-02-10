@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getConfig, DATA_DIR, ZYLOS_DIR, loadEnv } from './config.js';
+import { getConfig, DATA_DIR, ZYLOS_DIR } from './config.js';
 
 const execFile = promisify(execFileCb);
 
@@ -115,8 +115,15 @@ export async function getDisplayStatus() {
  */
 export function getVNCUrl(config) {
   config = config || getConfig();
-  const env = loadEnv();
-  const domain = env.DOMAIN || 'localhost';
+  let domain = 'localhost';
+  try {
+    const zylosConfig = JSON.parse(fs.readFileSync(
+      path.join(ZYLOS_DIR, '.zylos/config.json'), 'utf8'
+    ));
+    if (zylosConfig.domain) domain = zylosConfig.domain;
+  } catch {
+    // config.json not found — use localhost
+  }
   return `https://${domain}/vnc/vnc.html?path=vnc/websockify&autoconnect=true`;
 }
 
