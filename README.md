@@ -22,7 +22,7 @@
 - **Browse the web** — your AI agent navigates, clicks, fills forms, and extracts content from any website
 - **See like a human** — accessibility tree snapshots let the agent understand page structure, no brittle selectors
 - **Learn from mistakes** — per-domain knowledge store tracks gotchas and adapts over time
-- **Connect anywhere** — headless, headed, or attach to an existing Chrome session via CDP
+- **Your browser, your logins** — connect to your own Chrome via CDP, reuse existing sessions without re-authenticating
 
 ## Getting Started
 
