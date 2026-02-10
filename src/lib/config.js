@@ -50,6 +50,38 @@ export const DEFAULT_CONFIG = {
 };
 
 let config = null;
+let envCache = null;
+
+/**
+ * Load environment variables from ~/zylos/.env
+ * Returns an object with parsed key=value pairs.
+ */
+export function loadEnv() {
+  if (envCache) return envCache;
+  envCache = {};
+  try {
+    if (fs.existsSync(ENV_FILE)) {
+      const content = fs.readFileSync(ENV_FILE, 'utf8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        let value = trimmed.slice(eqIdx + 1).trim();
+        // Strip surrounding quotes
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        envCache[key] = value;
+      }
+    }
+  } catch {
+    // .env not found or not readable — ok
+  }
+  return envCache;
+}
 
 /**
  * Deep merge two objects. Source values override target.

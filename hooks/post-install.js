@@ -15,6 +15,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 
 const HOME = process.env.HOME;
@@ -72,7 +73,24 @@ for (const dep of deps) {
   }
 }
 
-// 4. Check shared display infrastructure
+// 4. Generate VNC password if not exists
+const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
+if (!fs.existsSync(vncPasswdFile)) {
+  console.log('\nGenerating VNC password...');
+  try {
+    const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
+    execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
+    console.log(`  VNC password stored at ${vncPasswdFile}`);
+    console.log(`  Password: ${password}`);
+  } catch (err) {
+    console.log(`  Could not generate VNC password: ${err.message}`);
+    console.log('  VNC will fall back to no-password mode.');
+  }
+} else {
+  console.log('\nVNC password already exists, skipping.');
+}
+
+// 5. Check shared display infrastructure + auto-start if deps available
 console.log('\nChecking shared display infrastructure...');
 try {
   const pm2List = execSync('pm2 jlist 2>/dev/null', { encoding: 'utf-8' });
@@ -84,7 +102,14 @@ try {
   console.log(`  Xvfb (zylos-xvfb): ${xvfbRunning ? 'running' : 'not running'}`);
   console.log(`  VNC (zylos-vnc): ${vncRunning ? 'running' : 'not running'}`);
 
-  if (!xvfbRunning) {
+  if (!xvfbRunning && missing.length === 0) {
+    console.log('\nAll dependencies present. Auto-starting display...');
+    try {
+      execSync('zylos-browser display start', { stdio: 'inherit', timeout: 30000 });
+    } catch {
+      console.log('  Auto-start failed. Start manually: zylos-browser display start');
+    }
+  } else if (!xvfbRunning) {
     console.log('  Note: Start display with: zylos-browser display start');
   }
 } catch {

@@ -1,6 +1,6 @@
 ---
 name: browser
-version: 0.1.0
+version: 0.1.0-beta.1
 description: General-purpose browser automation capability
 type: capability
 
@@ -27,6 +27,12 @@ config:
 
 bin:
   zylos-browser: src/cli.js
+
+http_routes:
+  - path: /vnc/*
+    type: reverse_proxy
+    target: localhost:6080
+    strip_prefix: /vnc
 
 dependencies: []
 ---
