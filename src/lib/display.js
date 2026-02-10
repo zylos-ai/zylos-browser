@@ -6,10 +6,12 @@
  * needing a display can check and start them.
  */
 
-import { execFile as execFileCb } from 'node:child_process';
+import { execFile as execFileCb, execSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { promisify } from 'node:util';
+import fs from 'node:fs';
 import path from 'node:path';
-import { getConfig, ZYLOS_DIR } from './config.js';
+import { getConfig, DATA_DIR, ZYLOS_DIR, loadEnv } from './config.js';
 
 const execFile = promisify(execFileCb);
 
@@ -24,6 +26,23 @@ async function isPM2Running(name) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Find the noVNC web directory for websockify --web flag.
+ * Returns null if not found (websockify will run as pure proxy).
+ */
+function findNoVNCPath() {
+  const candidates = [
+    '/usr/share/novnc',
+    '/usr/share/noVNC',
+    '/usr/local/share/noVNC',
+    '/snap/novnc/current',
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
 /**
@@ -96,8 +115,9 @@ export async function getDisplayStatus() {
  */
 export function getVNCUrl(config) {
   config = config || getConfig();
-  // URL is proxied through nginx — port is not in the URL
-  return `https://zylos10.jinglever.com/vnc/vnc.html?path=vnc/websockify&autoconnect=true`;
+  const env = loadEnv();
+  const domain = env.DOMAIN || 'localhost';
+  return `https://${domain}/vnc/vnc.html?path=vnc/websockify&autoconnect=true`;
 }
 
 /**
@@ -124,10 +144,31 @@ export async function startVNC(options = {}) {
   // Ensure display is running first
   await ensureDisplay(options);
 
+  // Ensure VNC password file exists
+  const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
+  let authFlags = '-nopw';
+  try {
+    if (!fs.existsSync(vncPasswdFile)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      // Generate a random 8-char password and store it
+      const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
+      execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
+    }
+    if (fs.existsSync(vncPasswdFile)) {
+      authFlags = `-rfbauth ${vncPasswdFile}`;
+    }
+  } catch {
+    // Fall back to -nopw if password setup fails
+  }
+
+  // Detect noVNC web directory for websockify --web flag
+  const novncPath = findNoVNCPath();
+  const webFlag = novncPath ? `--web ${novncPath} ` : '';
+
   // Start x11vnc + noVNC via a script
   // x11vnc connects to the Xvfb display, noVNC provides web access
-  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -nopw -bg 2>/dev/null; ` +
-    `websockify --web /usr/share/novnc ${novncPort} localhost:${vncPort}`;
+  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever ${authFlags} -bg 2>/dev/null; ` +
+    `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
     await execFile('pm2', [
