@@ -1,14 +1,25 @@
 # zylos-browser
 
-General-purpose browser automation capability for Zylos agents. Enables Claude to control a browser for web interactions, data extraction, and automated workflows.
+[![Version](https://img.shields.io/badge/version-0.1.0--beta.2-blue.svg)](https://github.com/zylos-ai/zylos-browser/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
-**Note**: This is a generic browser capability component. Platform-specific logic (Twitter posting, Xiaohongshu publishing, etc.) belongs in their own components that depend on zylos-browser.
+Browser automation component for [Zylos](https://github.com/zylos-ai/zylos-core) agents — a generic toolbox for web interaction.
 
-## Design Principles
+## Features
 
-- **Generic toolbox, not platform framework**: zylos-browser provides general-purpose browser automation building blocks. It does not include platform-specific adapters or abstraction layers.
-- **Compose, don't abstract**: Platform components (zylos-twitter, zylos-xhs, etc.) freely combine the modules they need — Core Control for complex workflows, Sequence Runner for simple repeatable actions, Site Knowledge for learning. No forced adapter interface.
-- **Defer abstraction (Rule of Three)**: Common patterns across platform components will be extracted into shared abstractions only after 2-3 concrete implementations exist. Premature abstraction limits flexibility.
+- **Page Navigation** — Open URLs, click elements, fill forms
+- **Content Extraction** — Read page content, take screenshots
+- **Site Knowledge** — Per-domain interaction rules and selectors
+- **Sequence Runner** — Automate multi-step browser workflows
+- **VNC Support** — Watch browser activity in real-time via VNC
+
+## Getting Started
+
+Tell your Zylos agent:
+
+> "Install the browser component"
+
+Zylos will guide you through the setup, including Playwright browser installation.
 
 ## Architecture
 
@@ -21,165 +32,48 @@ zylos-browser
     +-- Core Browser Control (via agent-browser CLI)
     |     - Page navigation, element interaction, screenshots
     |     - Accessibility tree snapshots with refs
-    |     - CDP mode for connecting to existing Chrome
+    |     - Headless, headed, or CDP mode (connect to existing Chrome)
     |
     +-- Site Knowledge (learning layer)
     |     - Per-domain automation knowledge store
     |     - Gotcha tracking (lessons learned from failures)
-    |     - Element selector caching
-    |     - Success rate tracking per task
+    |     - Element selector caching and success rate tracking
     |
     +-- Sequence Runner (workflow engine)
     |     - Pre-recorded action sequences (JSON)
-    |     - Variable interpolation
-    |     - Fallback targeting with alternatives
-    |     - Precondition checking
+    |     - Variable interpolation and fallback targeting
+    |     - Precondition checking and verification
     |
     +-- Task Analysis (self-healing)
           - Post-task success/failure detection
-          - Gotcha extraction from failures
-          - Knowledge base auto-update
+          - Gotcha extraction and knowledge base auto-update
 ```
 
-## Capabilities
+zylos-browser is a **generic toolbox, not a platform framework**. Platform-specific logic (Twitter posting, Xiaohongshu publishing, etc.) belongs in their own components that depend on zylos-browser.
 
-### 1. Core Browser Control
+## Managing the Component
 
-Wraps [agent-browser](https://github.com/vercel-labs/agent-browser) CLI as the underlying engine.
+| Task | Example |
+|------|---------|
+| Check status | "Show browser status" |
+| View logs | "Show browser logs" |
+| Take screenshot | "Take a screenshot of the current page" |
 
-| Capability | Description |
-|------------|-------------|
-| **Navigation** | Open URLs, back/forward, reload, wait for load states |
-| **Element Interaction** | Click, type, fill, select, check/uncheck, drag & drop |
-| **Accessibility Snapshots** | Get page structure with deterministic refs (@e1, @e2...) |
-| **Screenshots** | Full page or viewport, PNG format |
-| **Form Handling** | Fill forms, upload files, submit |
-| **Tab Management** | Open, switch, close tabs |
-| **Cookie/Storage** | Read/write cookies, localStorage, sessionStorage |
-| **Network** | Intercept requests, mock responses, track API calls |
-| **Keyboard** | Key press, key combinations (Ctrl+A, etc.) |
-| **Mouse** | Move, click at coordinates, scroll, wheel |
-| **Wait Conditions** | Wait for element, text, URL pattern, network idle, JS condition |
+## Documentation
 
-**Access modes:**
-- **Headless** (default): No display needed, runs in background
-- **CDP mode**: Connect to an existing Chrome instance (e.g., with user login sessions)
-- **Headed mode**: Visible browser window for debugging
+- [SKILL.md](./SKILL.md) — Component specification and CLI commands
+- [CHANGELOG.md](./CHANGELOG.md) — Version history
 
-### 2. Site Knowledge (Autonomous Learning)
+## Contributing
 
-Persistent per-domain knowledge store that helps the agent learn from past browser interactions.
+1. Fork the repository
+2. Create a feature branch
+3. Submit a Pull Request
 
-| Feature | Description |
-|---------|-------------|
-| **Gotcha Tracking** | Records common failure patterns per site (e.g., "button ref changes after page reload") |
-| **Element Cache** | Remembers reliable selectors for key elements per URL pattern |
-| **Task Success Tracking** | Tracks which approaches work for specific tasks on specific sites |
-| **Path Pattern Matching** | Knowledge applies to URL patterns (e.g., `/*/status/*` matches all tweet pages) |
+## License
 
-**Storage**: `~/zylos/components/browser/knowledge/{domain}.json`
+[MIT](./LICENSE)
 
-**How it works**: Before performing a browser task on a domain, Claude loads that domain's knowledge file to understand known pitfalls and reliable selectors. After task completion, new learnings are saved back.
+---
 
-### 3. Sequence Runner (Workflow Engine)
-
-General-purpose engine for running pre-recorded browser action sequences. Platform components provide their own sequence files; zylos-browser provides the execution engine.
-
-| Feature | Description |
-|---------|-------------|
-| **JSON Sequences** | Define workflows as JSON with steps, variables, and verification |
-| **Variable Interpolation** | `{{variable_name}}` syntax for parameterized sequences |
-| **Fallback Targeting** | Multiple selector strategies per action (primary + alternatives) |
-| **Preconditions** | Check URL pattern and required elements before running |
-| **Verification** | Verify success after each action with configurable timeout |
-
-**Example sequence**:
-```json
-{
-  "name": "fill-contact-form",
-  "preconditions": {
-    "url_pattern": "example.com/contact"
-  },
-  "variables": {
-    "name": { "type": "string", "required": true },
-    "message": { "type": "string", "required": true }
-  },
-  "steps": [
-    { "action": "fill", "target": "@name-input", "value": "{{name}}" },
-    { "action": "fill", "target": "@message-input", "value": "{{message}}" },
-    { "action": "click", "target": "@submit-button" }
-  ]
-}
-```
-
-Sequence files are stored in `~/zylos/components/browser/sequences/` and can be added by platform components or by the user.
-
-### 4. Task Analysis (Self-Healing)
-
-Post-task analysis that helps the agent improve browser automation over time.
-
-| Feature | Description |
-|---------|-------------|
-| **Success/Failure Detection** | Analyze task output to determine if the browser action succeeded |
-| **Gotcha Extraction** | Extract lessons from failures and save to site knowledge |
-| **Selector Updates** | Update cached selectors when UI changes are detected |
-| **Retry Guidance** | Suggest alternative approaches for failed tasks |
-
-This creates a feedback loop: execute task -> analyze result -> update knowledge -> next execution is smarter.
-
-## Interface
-
-### CLI Commands (for Claude)
-
-```bash
-# Core browser control (delegates to agent-browser)
-zylos-browser open <url>
-zylos-browser snapshot [-i] [-c]
-zylos-browser click <ref|selector>
-zylos-browser type <ref|selector> <text>
-zylos-browser screenshot [path]
-
-# Sequence runner
-zylos-browser run <sequence-name> [--var key=value ...]
-zylos-browser sequences                    # List available sequences
-
-# Site knowledge
-zylos-browser knowledge <domain>           # View knowledge for domain
-zylos-browser knowledge add-gotcha <domain> <gotcha>
-```
-
-### For Platform Components
-
-Platform components (e.g., zylos-twitter) that depend on zylos-browser can:
-1. Register their own sequence files in `~/zylos/components/browser/sequences/<domain>/`
-2. Use the sequence runner API to execute workflows
-3. Leverage site knowledge for their target domains
-
-## Requirements
-
-- **Chrome/Chromium** with `--remote-debugging-port=9222` (for CDP mode)
-  - Or: `agent-browser install` to download bundled Chromium
-- **Node.js** >= 20
-- **Display**: X11/Xvfb for headed mode (optional, headless works without)
-- **agent-browser** CLI (installed globally via npm)
-
-## Data Directory
-
-```
-~/zylos/components/browser/
-├── config.json          # Component configuration
-├── knowledge/           # Per-domain site knowledge
-│   ├── x.com.json
-│   └── ...
-├── sequences/           # Action sequences (from platform components or user)
-│   └── ...
-└── logs/
-    ├── out.log
-    └── error.log
-```
-
-## Reference
-
-- [agent-browser](https://github.com/vercel-labs/agent-browser) - Underlying browser engine
-- [zylos-telegram](https://github.com/zylos-ai/zylos-telegram) - Communication component reference
-- [zylos-lark](https://github.com/zylos-ai/zylos-lark) - Communication component reference
+Made with Claude by [Zylos AI](https://github.com/zylos-ai)
