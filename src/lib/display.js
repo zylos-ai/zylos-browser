@@ -148,7 +148,7 @@ export async function ensureChrome(options = {}) {
 
   const chromeArgs = [
     `--remote-debugging-port=${cdpPort}`,
-    `--user-data-dir=${os.homedir()}/.chrome-zylos`,
+    `--user-data-dir=${DATA_DIR}/chrome-profile`,
     '--no-first-run',
     '--no-default-browser-check',
     '--no-sandbox',
