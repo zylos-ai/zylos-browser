@@ -36,7 +36,7 @@ console.log('[post-install] Running browser-specific setup...\n');
 
 // 1. Create data subdirectories
 console.log('Creating data directories...');
-const subdirs = ['knowledge', 'sequences', 'screenshots', 'logs'];
+const subdirs = ['knowledge', 'sequences', 'screenshots', 'logs', 'chrome-profile'];
 for (const dir of subdirs) {
   fs.mkdirSync(path.join(DATA_DIR, dir), { recursive: true });
   console.log(`  - ${dir}/`);

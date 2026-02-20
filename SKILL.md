@@ -1,6 +1,6 @@
 ---
 name: browser
-version: 0.1.0
+version: 0.1.1
 description: General-purpose browser automation capability
 type: capability
 
@@ -17,6 +17,7 @@ lifecycle:
     - knowledge/
     - sequences/
     - screenshots/
+    - chrome-profile/
 
 upgrade:
   repo: zylos-ai/zylos-browser

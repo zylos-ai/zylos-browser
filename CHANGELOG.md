@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-02-21
+
+### Fixed
+- Resolve Chrome launch failures on systems with Snap Chromium by discovering Puppeteer-installed Chrome binaries
+- Use component data directory for Chrome profile instead of temp path (survives reboots)
+- Add `chrome-profile/` to preserve list to retain login state across upgrades
+
 ## [0.1.0] - 2026-02-11
 
 Initial public release.

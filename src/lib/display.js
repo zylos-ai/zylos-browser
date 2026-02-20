@@ -33,7 +33,7 @@ function findPuppeteerChromes() {
   }
 }
 
-/** Chrome binary candidates in preference order */
+/** Chrome binary candidates in preference order (evaluated once at import time) */
 const CHROME_CANDIDATES = [
   'google-chrome-stable',
   'google-chrome',
@@ -151,7 +151,7 @@ export async function ensureChrome(options = {}) {
     `--user-data-dir=${DATA_DIR}/chrome-profile`,
     '--no-first-run',
     '--no-default-browser-check',
-    '--no-sandbox',
+    '--no-sandbox', // Required for Puppeteer-installed Chrome which lacks SUID sandbox helper
     '--disable-background-networking',
     '--disable-sync',
     '--disable-translate',
