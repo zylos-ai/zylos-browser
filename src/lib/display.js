@@ -8,6 +8,7 @@
 
 import { execFile as execFileCb, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,10 +16,28 @@ import { getConfig, DATA_DIR, ZYLOS_DIR } from './config.js';
 
 const execFile = promisify(execFileCb);
 
+/**
+ * Discover Puppeteer-installed Chrome binaries.
+ * These are non-snap and avoid confinement issues with user-data-dir.
+ */
+function findPuppeteerChromes() {
+  try {
+    const puppeteerDir = path.join(os.homedir(), '.cache/puppeteer/chrome');
+    if (!fs.existsSync(puppeteerDir)) return [];
+    return fs.readdirSync(puppeteerDir)
+      .sort().reverse()
+      .map(v => path.join(puppeteerDir, v, 'chrome-linux64/chrome'))
+      .filter(p => fs.existsSync(p));
+  } catch {
+    return [];
+  }
+}
+
 /** Chrome binary candidates in preference order */
 const CHROME_CANDIDATES = [
   'google-chrome-stable',
   'google-chrome',
+  ...findPuppeteerChromes(),
   'chromium-browser',
   'chromium',
 ];
@@ -93,8 +112,12 @@ export async function ensureDisplay(options = {}) {
 export function findChromeBinary() {
   for (const bin of CHROME_CANDIDATES) {
     try {
-      const result = execSync(`which ${bin}`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
-      if (result) return result;
+      if (path.isAbsolute(bin)) {
+        if (fs.existsSync(bin)) return bin;
+      } else {
+        const result = execSync(`which ${bin}`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+        if (result) return result;
+      }
     } catch {
       // not found, try next
     }
@@ -125,9 +148,10 @@ export async function ensureChrome(options = {}) {
 
   const chromeArgs = [
     `--remote-debugging-port=${cdpPort}`,
-    '--user-data-dir=/tmp/chrome-zylos',
+    `--user-data-dir=${DATA_DIR}/chrome-profile`,
     '--no-first-run',
     '--no-default-browser-check',
+    '--no-sandbox',
     '--disable-background-networking',
     '--disable-sync',
     '--disable-translate',
