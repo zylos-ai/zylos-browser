@@ -302,6 +302,11 @@ export async function stopVNC() {
   } catch {
     // Already stopped or doesn't exist
   }
+  try {
+    execSync('pkill -f x0vncserver 2>/dev/null', { stdio: 'pipe' });
+  } catch {
+    // No x0vncserver process running
+  }
 }
 
 /**
