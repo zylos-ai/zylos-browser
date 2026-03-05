@@ -276,7 +276,7 @@ export async function startVNC(options = {}) {
   // x0vncserver runs in background (&) since it has no -bg flag, then websockify runs in foreground
   const vncScript = `pkill -f x0vncserver 2>/dev/null; ` +
     `x0vncserver -display :${displayNum} -rfbport ${vncPort} -AlwaysShared ${authFlags} & ` +
-    `for i in $(seq 1 20); do ss -tln | grep -q :${vncPort} && break; sleep 0.5; done && ` +
+    `for i in $(seq 1 20); do ss -tln | grep -qE ':${vncPort}\\b' && break; sleep 0.5; done && ` +
     `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
