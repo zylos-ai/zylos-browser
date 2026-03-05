@@ -223,7 +223,10 @@ export function getVNCUrl(config) {
 }
 
 /**
- * Start VNC (x11vnc + noVNC websockify) via PM2
+ * Start VNC (TigerVNC x0vncserver + noVNC websockify) via PM2
+ *
+ * Uses x0vncserver (TigerVNC scraping server) which has native UTF-8
+ * clipboard support via RFB protocol extensions, fixing garbled CJK text.
  *
  * @param {object} options - Override VNC settings
  * @returns {{ vncPort: number, novncPort: number, url: string }}
@@ -246,31 +249,33 @@ export async function startVNC(options = {}) {
   // Ensure display is running first
   await ensureDisplay(options);
 
-  // Ensure VNC password file exists
+  // Ensure VNC password file exists (TigerVNC format via vncpasswd)
   const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
-  let authFlags = '-nopw';
+  let authFlags = 'SecurityTypes=None';
   try {
     if (!fs.existsSync(vncPasswdFile)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
-      // Generate a random 8-char password and store it
+      // Generate a random 8-char password and store it via TigerVNC's vncpasswd
       const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-      execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
+      execSync(`echo '${password}' | vncpasswd -f > ${vncPasswdFile}`, { stdio: 'pipe' });
+      fs.chmodSync(vncPasswdFile, 0o600);
     }
     if (fs.existsSync(vncPasswdFile)) {
-      authFlags = `-rfbauth ${vncPasswdFile}`;
+      authFlags = `SecurityTypes=VncAuth PasswordFile=${vncPasswdFile}`;
     }
   } catch {
-    // Fall back to -nopw if password setup fails
+    // Fall back to no-auth if password setup fails
   }
 
   // Detect noVNC web directory for websockify --web flag
   const novncPath = findNoVNCPath();
   const webFlag = novncPath ? `--web ${novncPath} ` : '';
 
-  // Start x11vnc + noVNC via a script
-  // x11vnc connects to the Xvfb display, noVNC provides web access
-  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -noxdamage -utf8 ${authFlags} -bg 2>/dev/null; ` +
-    `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
+  // Start x0vncserver + noVNC via a script
+  // x0vncserver connects to the Xvfb display (scraping mode), noVNC provides web access
+  // x0vncserver runs in background (&) since it has no -bg flag, then websockify runs in foreground
+  const vncScript = `x0vncserver -display :${displayNum} -rfbport ${vncPort} -AlwaysShared ${authFlags} & ` +
+    `sleep 1 && websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
     await execFile('pm2', [

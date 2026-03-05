@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **VNC display quality**: Added `-noxdamage` flag to x11vnc for more reliable screen updates
 - **Chrome profile lost on reboot**: `user-data-dir` moved from `/tmp/chrome-zylos` to persistent `DATA_DIR/chrome-profile`
 - Chrome `--no-sandbox` warning banner by adding `--test-type` flag
-- Chinese text garbled (mojibake) when pasting via noVNC clipboard panel by adding `-utf8` to x11vnc
+- **Chinese text garbled (mojibake)** when pasting via noVNC clipboard: replaced x11vnc with TigerVNC `x0vncserver` which has native UTF-8 clipboard support via RFB protocol extensions
 
 ### Added
 - `xdotool` installed as optional dependency for clipboard/input automation (#21)
@@ -33,7 +33,7 @@ Initial public release.
 - Task analyzer (post-task analysis and self-healing)
 - Display manager (Xvfb/VNC/noVNC management)
 - Full CLI interface (`zylos-browser` command)
-- Auto-install system dependencies (xvfb, x11vnc, websockify)
+- Auto-install system dependencies (xvfb, TigerVNC x0vncserver, websockify)
 - VNC password authentication with auto-generation
 - Dynamic VNC URL from domain config
 - `http_routes` for automatic Caddy reverse proxy
