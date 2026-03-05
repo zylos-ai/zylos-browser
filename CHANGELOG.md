@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - 2026-03-05
+## [0.1.2] - 2026-03-06
 
 ### Fixed
 - **PM2 cannot start Xvfb**: PM2 treated `Xvfb` as a JS script path. Now uses full binary path with `--interpreter none` (#24)
@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CJK fonts not installed**: `post-install.js` now installs `fonts-noto-cjk` and configures fontconfig rules for Chrome (#20, #22)
 - **VNC display quality**: Added `-noxdamage` flag to x11vnc for more reliable screen updates
 - **Chrome profile lost on reboot**: `user-data-dir` moved from `/tmp/chrome-zylos` to persistent `DATA_DIR/chrome-profile`
+- Chrome `--no-sandbox` warning banner by adding `--test-type` flag
+- Chinese text garbled (mojibake) when pasting via noVNC clipboard panel by adding `-utf8` to x11vnc
 
 ### Added
 - `xdotool` installed as optional dependency for clipboard/input automation (#21)

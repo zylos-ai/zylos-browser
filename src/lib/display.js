@@ -129,6 +129,7 @@ export async function ensureChrome(options = {}) {
     `--remote-debugging-port=${cdpPort}`,
     `--user-data-dir=${path.join(DATA_DIR, 'chrome-profile')}`,
     '--no-first-run',
+    '--test-type',
     '--no-default-browser-check',
     '--no-sandbox',
     '--disable-background-networking',
@@ -268,7 +269,7 @@ export async function startVNC(options = {}) {
 
   // Start x11vnc + noVNC via a script
   // x11vnc connects to the Xvfb display, noVNC provides web access
-  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -noxdamage ${authFlags} -bg 2>/dev/null; ` +
+  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -noxdamage -utf8 ${authFlags} -bg 2>/dev/null; ` +
     `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
