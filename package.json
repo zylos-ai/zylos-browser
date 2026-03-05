@@ -1,6 +1,6 @@
 {
   "name": "zylos-browser",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "General-purpose browser automation capability for Zylos agents",
   "type": "module",
   "scripts": {

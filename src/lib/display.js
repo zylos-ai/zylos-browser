@@ -8,6 +8,7 @@
 
 import { execFile as execFileCb, execSync } from 'node:child_process';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -71,11 +72,13 @@ export async function ensureDisplay(options = {}) {
     return { display, started: false };
   }
 
-  // Start Xvfb via PM2
+  // Start Xvfb via PM2 (need full path + --interpreter none for system binaries)
   try {
+    const xvfbPath = execSync('which Xvfb', { encoding: 'utf-8', stdio: 'pipe' }).trim();
     await execFile('pm2', [
-      'start', 'Xvfb',
+      'start', xvfbPath,
       '--name', 'zylos-xvfb',
+      '--interpreter', 'none',
       '--', display, `-screen`, `0`, resolution
     ], { timeout: 15000 });
     // Wait for Xvfb to be ready
@@ -125,16 +128,17 @@ export async function ensureChrome(options = {}) {
 
   const chromeArgs = [
     `--remote-debugging-port=${cdpPort}`,
-    '--user-data-dir=/tmp/chrome-zylos',
+    `--user-data-dir=${path.join(DATA_DIR, 'chrome-profile')}`,
     '--no-first-run',
     '--no-default-browser-check',
+    '--no-sandbox',
     '--disable-background-networking',
     '--disable-sync',
     '--disable-translate',
     '--disable-extensions',
     '--disable-default-apps',
     '--disable-features=TranslateUI',
-    '--window-size=1920,1080',
+    '--window-size=1280,1024',
     '--window-position=0,0',
     'about:blank',
   ].join(' ');
@@ -215,7 +219,7 @@ export function getVNCUrl(config) {
   } catch {
     // config.json not found — use localhost
   }
-  return `https://${domain}/vnc/vnc.html?path=vnc/websockify&autoconnect=true`;
+  return `https://${domain}/vnc/vnc.html?path=vnc/websockify&autoconnect=true&resize=scale`;
 }
 
 /**
@@ -265,7 +269,7 @@ export async function startVNC(options = {}) {
 
   // Start x11vnc + noVNC via a script
   // x11vnc connects to the Xvfb display, noVNC provides web access
-  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever ${authFlags} -bg 2>/dev/null; ` +
+  const vncScript = `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -noxdamage ${authFlags} -bg 2>/dev/null; ` +
     `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {

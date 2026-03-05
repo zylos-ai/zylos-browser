@@ -36,7 +36,7 @@ console.log('[post-install] Running browser-specific setup...\n');
 
 // 1. Create data subdirectories
 console.log('Creating data directories...');
-const subdirs = ['knowledge', 'sequences', 'screenshots', 'logs'];
+const subdirs = ['knowledge', 'sequences', 'screenshots', 'logs', 'chrome-profile'];
 for (const dir of subdirs) {
   fs.mkdirSync(path.join(DATA_DIR, dir), { recursive: true });
   console.log(`  - ${dir}/`);
@@ -56,24 +56,24 @@ if (!fs.existsSync(configPath)) {
 
 /**
  * Install Chrome/Chromium. Tries multiple methods:
- * 1. apt-get install chromium-browser (Debian/Ubuntu)
- * 2. Google Chrome .deb package (fallback)
+ * 1. Google Chrome stable .deb (preferred — not Snap, no sandbox issues)
+ * 2. apt-get install chromium-browser (fallback — may be Snap on Ubuntu 22.04+)
  */
 function installChrome() {
-  // Try chromium-browser via apt first
+  // Try Google Chrome stable first (non-Snap, avoids confinement issues)
   try {
-    execSync('sudo apt-get install -y chromium-browser', { stdio: 'pipe', timeout: 180000 });
+    const debUrl = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb';
+    const debPath = '/tmp/google-chrome-stable.deb';
+    execSync(`wget -q -O ${debPath} ${debUrl}`, { stdio: 'pipe', timeout: 120000 });
+    execSync(`sudo apt-get install -y ${debPath}`, { stdio: 'pipe', timeout: 120000 });
+    execSync(`rm -f ${debPath}`, { stdio: 'ignore' });
     return;
   } catch {
-    console.log('    chromium-browser apt install failed, trying Google Chrome...');
+    console.log('    Google Chrome install failed, trying chromium-browser...');
   }
 
-  // Fallback: Google Chrome stable .deb
-  const debUrl = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb';
-  const debPath = '/tmp/google-chrome-stable.deb';
-  execSync(`wget -q -O ${debPath} ${debUrl}`, { stdio: 'pipe', timeout: 120000 });
-  execSync(`sudo apt-get install -y ${debPath}`, { stdio: 'pipe', timeout: 120000 });
-  execSync(`rm -f ${debPath}`, { stdio: 'ignore' });
+  // Fallback: chromium-browser via apt (may be Snap on newer Ubuntu)
+  execSync('sudo apt-get install -y chromium-browser', { stdio: 'pipe', timeout: 180000 });
 }
 
 console.log('\nChecking dependencies...');
@@ -87,6 +87,8 @@ const deps = [
   { name: 'Xvfb', check: 'which Xvfb', install: 'sudo apt-get install -y xvfb', required: true },
   { name: 'x11vnc', check: 'which x11vnc', install: 'sudo apt-get install -y x11vnc', required: true },
   { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', required: true },
+  { name: 'noVNC web client', check: 'test -d /usr/share/novnc', install: 'sudo apt-get install -y novnc', required: true },
+  { name: 'xdotool', check: 'which xdotool', install: 'sudo apt-get install -y xdotool', required: false },
 ];
 
 const missing = [];
@@ -126,7 +128,46 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-// 4. Generate VNC password if not exists
+// 4. Install CJK fonts and fontconfig rules
+console.log('\nInstalling CJK fonts...');
+try {
+  execSync('sudo apt-get install -y fonts-noto-cjk', { stdio: 'pipe', timeout: 120000 });
+  console.log('  [OK] fonts-noto-cjk');
+} catch {
+  console.log('  [WARN] CJK fonts install failed — non-critical, continuing.');
+}
+
+// Setup fontconfig rules so Chrome picks up CJK fonts
+const fontconfPath = '/etc/fonts/conf.d/64-zylos-cjk.conf';
+try {
+  if (!fs.existsSync(fontconfPath)) {
+    const fontconfContent = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <alias>
+    <family>sans-serif</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>serif</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>monospace</family>
+    <prefer><family>Noto Sans Mono CJK SC</family></prefer>
+  </alias>
+</fontconfig>`;
+    execSync(`echo '${fontconfContent}' | sudo tee ${fontconfPath} > /dev/null`, { stdio: 'pipe' });
+    execSync('sudo fc-cache -f', { stdio: 'pipe', timeout: 30000 });
+    console.log('  [OK] CJK fontconfig rules installed');
+  } else {
+    console.log('  [OK] CJK fontconfig rules already exist');
+  }
+} catch {
+  console.log('  [WARN] fontconfig CJK setup failed — non-critical, continuing.');
+}
+
+// 5. Generate VNC password if not exists
 const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
 if (!fs.existsSync(vncPasswdFile)) {
   console.log('\nGenerating VNC password...');
@@ -143,7 +184,7 @@ if (!fs.existsSync(vncPasswdFile)) {
   console.log('\nVNC password already exists, skipping.');
 }
 
-// 5. Auto-start display infrastructure (Xvfb + Chrome + VNC)
+// 6. Auto-start display infrastructure (Xvfb + Chrome + VNC)
 console.log('\nStarting display infrastructure...');
 try {
   execSync('zylos-browser display start', { stdio: 'inherit', timeout: 60000 });
