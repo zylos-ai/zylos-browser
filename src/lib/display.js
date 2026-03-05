@@ -257,8 +257,8 @@ export async function startVNC(options = {}) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
       // Generate a random 8-char password and store it via TigerVNC's vncpasswd
       const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-      execSync(`echo '${password}' | vncpasswd -f > ${vncPasswdFile}`, { stdio: 'pipe' });
-      fs.chmodSync(vncPasswdFile, 0o600);
+      const obfuscated = execSync('vncpasswd -f', { input: password + '\n', stdio: ['pipe', 'pipe', 'pipe'] });
+      fs.writeFileSync(vncPasswdFile, obfuscated, { mode: 0o600 });
     }
     if (fs.existsSync(vncPasswdFile)) {
       authFlags = `SecurityTypes=VncAuth PasswordFile=${vncPasswdFile}`;
@@ -275,7 +275,8 @@ export async function startVNC(options = {}) {
   // x0vncserver connects to the Xvfb display (scraping mode), noVNC provides web access
   // x0vncserver runs in background (&) since it has no -bg flag, then websockify runs in foreground
   const vncScript = `x0vncserver -display :${displayNum} -rfbport ${vncPort} -AlwaysShared ${authFlags} & ` +
-    `sleep 1 && websockify ${webFlag}${novncPort} localhost:${vncPort}`;
+    `for i in $(seq 1 20); do ss -tln | grep -q :${vncPort} && break; sleep 0.5; done && ` +
+    `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
     await execFile('pm2', [

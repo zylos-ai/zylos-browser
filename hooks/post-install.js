@@ -157,7 +157,7 @@ try {
     <prefer><family>Noto Sans Mono CJK SC</family></prefer>
   </alias>
 </fontconfig>`;
-    execSync(`echo '${fontconfContent}' | sudo tee ${fontconfPath} > /dev/null`, { stdio: 'pipe' });
+    execSync(`sudo tee ${fontconfPath} > /dev/null`, { input: fontconfContent, stdio: ['pipe', 'pipe', 'pipe'] });
     execSync('sudo fc-cache -f', { stdio: 'pipe', timeout: 30000 });
     console.log('  [OK] CJK fontconfig rules installed');
   } else {
@@ -173,10 +173,9 @@ if (!fs.existsSync(vncPasswdFile)) {
   console.log('\nGenerating VNC password...');
   try {
     const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-    execSync(`echo '${password}' | vncpasswd -f > ${vncPasswdFile}`, { stdio: 'pipe' });
-    fs.chmodSync(vncPasswdFile, 0o600);
+    const obfuscated = execSync('vncpasswd -f', { input: password + '\n', stdio: ['pipe', 'pipe', 'pipe'] });
+    fs.writeFileSync(vncPasswdFile, obfuscated, { mode: 0o600 });
     console.log(`  VNC password stored at ${vncPasswdFile}`);
-    console.log(`  Password: ${password}`);
   } catch (err) {
     console.log(`  Could not generate VNC password: ${err.message}`);
     console.log('  VNC will fall back to no-password mode.');
