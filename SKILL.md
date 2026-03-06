@@ -53,7 +53,7 @@ General-purpose browser automation capability for Zylos agents.
 
 - agent-browser CLI (installed as npm dependency, linked to ~/zylos/bin/)
 - Chrome/Chromium with CDP enabled (auto-installed by post-install)
-- Xvfb, TigerVNC x0vncserver, websockify (auto-installed by post-install)
+- Xvfb, x11vnc, websockify (auto-installed by post-install)
 
 ## When to Use
 

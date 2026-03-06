@@ -18,10 +18,10 @@ try {
   console.log('  Display services not running or already stopped.');
 }
 
-// Kill any orphaned x0vncserver processes
+// Kill any orphaned x11vnc processes
 try {
-  execSync('pkill -x x0vncserver 2>/dev/null; pkill -x autocutsel 2>/dev/null', { stdio: 'pipe' });
-  console.log('  Killed orphaned x0vncserver/autocutsel.');
+  execSync('pkill -x x11vnc 2>/dev/null; pkill -x autocutsel 2>/dev/null', { stdio: 'pipe' });
+  console.log('  Killed orphaned x11vnc/autocutsel.');
 } catch {
   // No orphaned processes
 }

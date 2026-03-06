@@ -12,10 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **noVNC web client not bundled**: `post-install.js` now installs the `novnc` apt package so `vnc.html` is served correctly (#18)
 - **noVNC viewport clipped**: Chrome window size (1920x1080) exceeded Xvfb resolution (1280x1024). Aligned to match, and added `resize=scale` to noVNC URL for auto-scaling (#23)
 - **CJK fonts not installed**: `post-install.js` now installs `fonts-noto-cjk` and configures fontconfig rules for Chrome (#20, #22)
-- **VNC server**: Replaced x11vnc with TigerVNC `x0vncserver` for better stability and native UTF-8 clipboard
+- **VNC clipboard broken**: x0vncserver 1.13.1 (Ubuntu apt) has no clipboard support (added in 1.15.0). Switched back to x11vnc which has built-in bidirectional clipboard (PRIMARY + CLIPBOARD + CUT_BUFFER0), with autocutsel for full noVNC clipboard sync
 - **Chrome profile lost on reboot**: `user-data-dir` moved from `/tmp/chrome-zylos` to persistent `DATA_DIR/chrome-profile`
 - Chrome `--no-sandbox` warning banner by adding `--test-type` flag
-- **Chinese text garbled (mojibake)** when pasting via noVNC clipboard: replaced x11vnc with TigerVNC `x0vncserver` which has native UTF-8 clipboard support via RFB protocol extensions
 
 ### Added
 - `xdotool` installed as optional dependency for clipboard/input automation (#21)

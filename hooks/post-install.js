@@ -85,7 +85,7 @@ const deps = [
     required: true,
   },
   { name: 'Xvfb', check: 'which Xvfb', install: 'sudo apt-get install -y xvfb', required: true },
-  { name: 'TigerVNC x0vncserver', check: 'which x0vncserver', install: 'sudo apt-get install -y tigervnc-scraping-server', required: true },
+  { name: 'x11vnc', check: 'which x11vnc', install: 'sudo apt-get install -y x11vnc', required: true },
   { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', required: true },
   { name: 'noVNC web client', check: 'test -d /usr/share/novnc', install: 'sudo apt-get install -y novnc', required: true },
   { name: 'xclip', check: 'which xclip', install: 'sudo apt-get install -y xclip', required: true },

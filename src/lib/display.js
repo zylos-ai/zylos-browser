@@ -223,10 +223,10 @@ export function getVNCUrl(config) {
 }
 
 /**
- * Start VNC (TigerVNC x0vncserver + noVNC websockify) via PM2
+ * Start VNC (x11vnc + noVNC websockify) via PM2
  *
- * Uses x0vncserver (TigerVNC scraping server) which has native UTF-8
- * clipboard support via RFB protocol extensions, fixing garbled CJK text.
+ * Uses x11vnc with built-in bidirectional clipboard support (PRIMARY + CLIPBOARD + CUT_BUFFER0).
+ * autocutsel bridges CUT_BUFFER0 ↔ CLIPBOARD/PRIMARY for full noVNC clipboard compatibility.
  *
  * @param {object} options - Override VNC settings
  * @returns {{ vncPort: number, novncPort: number, url: string }}
@@ -249,19 +249,17 @@ export async function startVNC(options = {}) {
   // Ensure display is running first
   await ensureDisplay(options);
 
-  // Ensure VNC password file exists (TigerVNC format via vncpasswd)
+  // Ensure VNC password file exists
   const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
-  let authFlags = 'SecurityTypes=None';
+  let authFlags = '';
   try {
     if (!fs.existsSync(vncPasswdFile)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
-      // Generate a random 8-char password and store it via TigerVNC's vncpasswd
       const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-      const obfuscated = execSync('vncpasswd -f', { input: password + '\n', stdio: ['pipe', 'pipe', 'pipe'] });
-      fs.writeFileSync(vncPasswdFile, obfuscated, { mode: 0o600 });
+      execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
     }
     if (fs.existsSync(vncPasswdFile)) {
-      authFlags = `SecurityTypes=VncAuth PasswordFile=${vncPasswdFile}`;
+      authFlags = `-rfbauth ${vncPasswdFile}`;
     }
   } catch {
     // Fall back to no-auth if password setup fails
@@ -271,13 +269,12 @@ export async function startVNC(options = {}) {
   const novncPath = findNoVNCPath();
   const webFlag = novncPath ? `--web ${novncPath} ` : '';
 
-  // Start x0vncserver + noVNC via a script
-  // x0vncserver connects to the Xvfb display (scraping mode), noVNC provides web access
-  // x0vncserver runs in background (&) since it has no -bg flag, then websockify runs in foreground
-  const vncScript = `pkill -x x0vncserver 2>/dev/null; pkill -x autocutsel 2>/dev/null; rm -f ~/.vnc/*.pid 2>/dev/null; ` +
-    `x0vncserver -display :${displayNum} -rfbport ${vncPort} -AlwaysShared ${authFlags} & ` +
-    `autocutsel -s CLIPBOARD -display :${displayNum} & autocutsel -s PRIMARY -display :${displayNum} & ` +
-    `for i in $(seq 1 20); do ss -tln | grep -qE ':${vncPort}\\b' && break; sleep 0.5; done && ` +
+  // Start x11vnc + autocutsel + noVNC via a script
+  // x11vnc has built-in clipboard support and backgrounds itself with -bg
+  // autocutsel ensures CUT_BUFFER0 ↔ CLIPBOARD/PRIMARY bidirectional sync
+  const vncScript = `pkill -x x11vnc 2>/dev/null; pkill -x autocutsel 2>/dev/null; rm -f ~/.vnc/*.pid 2>/dev/null; ` +
+    `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -bg ${authFlags} && ` +
+    `DISPLAY=:${displayNum} autocutsel -fork && DISPLAY=:${displayNum} autocutsel -s PRIMARY -fork && ` +
     `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
@@ -304,9 +301,9 @@ export async function stopVNC() {
     // Already stopped or doesn't exist
   }
   try {
-    execSync('pkill -x x0vncserver 2>/dev/null; pkill -x autocutsel 2>/dev/null', { stdio: 'pipe' });
+    execSync('pkill -x x11vnc 2>/dev/null; pkill -x autocutsel 2>/dev/null', { stdio: 'pipe' });
   } catch {
-    // No x0vncserver/autocutsel process running
+    // No x11vnc/autocutsel process running
   }
   try {
     execSync('rm -f ~/.vnc/*.pid 2>/dev/null', { stdio: 'pipe' });
