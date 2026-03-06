@@ -1,9 +1,10 @@
 /**
- * Display Manager — Xvfb/VNC/noVNC management
+ * Display Manager — Xtigervnc/noVNC management
  *
  * Manages virtual display infrastructure as shared resources.
- * Uses standard PM2 names (zylos-xvfb, zylos-vnc) so any component
- * needing a display can check and start them.
+ * Uses Xtigervnc (virtual X server + VNC server in one process) with
+ * native UTF-8 clipboard via Extended Clipboard Pseudo-Encoding.
+ * PM2 names: zylos-xvfb (display+VNC), zylos-vnc (websockify+vncconfig), zylos-chrome.
  */
 
 import { execFile as execFileCb, execSync } from 'node:child_process';
@@ -54,8 +55,9 @@ function findNoVNCPath() {
 }
 
 /**
- * Ensure Xvfb display is running
- * Checks for existing zylos-xvfb PM2 process, starts if not running.
+ * Ensure Xtigervnc display is running
+ * Xtigervnc = virtual X server + VNC server in one process.
+ * Provides native UTF-8 clipboard via Extended Clipboard Pseudo-Encoding.
  *
  * @param {object} options - Override display settings
  * @returns {{ display: string, started: boolean }}
@@ -64,6 +66,7 @@ export async function ensureDisplay(options = {}) {
   const config = getConfig();
   const displayNum = options.displayNumber ?? config.display?.number ?? 99;
   const resolution = options.resolution || config.display?.resolution || '1280x1024x24';
+  const vncPort = Number(options.vncPort ?? config.vnc?.port ?? 5900);
   const display = `:${displayNum}`;
 
   const isRunning = await isPM2Running('zylos-xvfb');
@@ -71,20 +74,44 @@ export async function ensureDisplay(options = {}) {
     return { display, started: false };
   }
 
-  // Start Xvfb via PM2 (need full path + --interpreter none for system binaries)
+  // Ensure VNC password file exists (TigerVNC format via vncpasswd)
+  const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
+  let authFlags = '-SecurityTypes None';
   try {
-    const xvfbPath = execSync('which Xvfb', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    if (!fs.existsSync(vncPasswdFile)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
+      const obfuscated = execSync('vncpasswd -f', { input: password + '\n', stdio: ['pipe', 'pipe', 'pipe'] });
+      fs.writeFileSync(vncPasswdFile, obfuscated, { mode: 0o600 });
+    }
+    if (fs.existsSync(vncPasswdFile)) {
+      authFlags = `-SecurityTypes VncAuth -PasswordFile ${vncPasswdFile}`;
+    }
+  } catch {
+    // Fall back to no-auth if password setup fails
+  }
+
+  // Parse resolution (e.g., "1280x1024x24" → geometry "1280x1024" + depth 24)
+  const resParts = resolution.split('x');
+  const geometry = `${resParts[0]}x${resParts[1]}`;
+  const depth = resParts[2] || '24';
+
+  // Start Xtigervnc via PM2
+  try {
+    const xtigervncPath = execSync('which Xtigervnc', { encoding: 'utf-8', stdio: 'pipe' }).trim();
     await execFile('pm2', [
-      'start', xvfbPath,
+      'start', xtigervncPath,
       '--name', 'zylos-xvfb',
       '--interpreter', 'none',
-      '--', display, `-screen`, `0`, resolution
+      '--', display, '-geometry', geometry, '-depth', depth,
+      '-rfbport', String(vncPort), '-AlwaysShared',
+      ...authFlags.split(' ')
     ], { timeout: 15000 });
-    // Wait for Xvfb to be ready
+    // Wait for Xtigervnc to be ready
     await new Promise(resolve => setTimeout(resolve, 1000));
     return { display, started: true };
   } catch (err) {
-    throw new Error(`Failed to start Xvfb: ${err.message}`);
+    throw new Error(`Failed to start Xtigervnc: ${err.message}`);
   }
 }
 
@@ -223,10 +250,11 @@ export function getVNCUrl(config) {
 }
 
 /**
- * Start VNC (x11vnc + noVNC websockify) via PM2
+ * Start noVNC web access (websockify + vncconfig) via PM2
  *
- * Uses x11vnc with built-in bidirectional clipboard support (PRIMARY + CLIPBOARD + CUT_BUFFER0).
- * autocutsel bridges CUT_BUFFER0 ↔ CLIPBOARD/PRIMARY for full noVNC clipboard compatibility.
+ * Xtigervnc (started by ensureDisplay) provides the VNC server with native UTF-8 clipboard.
+ * vncconfig enables clipboard exchange between VNC client and X applications.
+ * websockify proxies VNC over WebSocket for noVNC browser access.
  *
  * @param {object} options - Override VNC settings
  * @returns {{ vncPort: number, novncPort: number, url: string }}
@@ -246,35 +274,17 @@ export async function startVNC(options = {}) {
     return { vncPort, novncPort, url: getVNCUrl(config) };
   }
 
-  // Ensure display is running first
+  // Ensure Xtigervnc display+VNC is running first
   await ensureDisplay(options);
-
-  // Ensure VNC password file exists
-  const vncPasswdFile = path.join(DATA_DIR, '.vncpasswd');
-  let authFlags = '';
-  try {
-    if (!fs.existsSync(vncPasswdFile)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-      const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-      execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
-    }
-    if (fs.existsSync(vncPasswdFile)) {
-      authFlags = `-rfbauth ${vncPasswdFile}`;
-    }
-  } catch {
-    // Fall back to no-auth if password setup fails
-  }
 
   // Detect noVNC web directory for websockify --web flag
   const novncPath = findNoVNCPath();
   const webFlag = novncPath ? `--web ${novncPath} ` : '';
 
-  // Start x11vnc + autocutsel + noVNC via a script
-  // x11vnc has built-in clipboard support and backgrounds itself with -bg
-  // autocutsel ensures CUT_BUFFER0 ↔ CLIPBOARD/PRIMARY bidirectional sync
-  const vncScript = `pkill -x x11vnc 2>/dev/null; pkill -x autocutsel 2>/dev/null; rm -f ~/.vnc/*.pid 2>/dev/null; ` +
-    `x11vnc -display :${displayNum} -rfbport ${vncPort} -shared -forever -bg ${authFlags} && ` +
-    `DISPLAY=:${displayNum} autocutsel -fork && DISPLAY=:${displayNum} autocutsel -s PRIMARY -fork && ` +
+  // Start vncconfig (clipboard) + websockify (noVNC web proxy)
+  // vncconfig -nowin enables clipboard exchange between VNC clients and X apps (required for UTF-8)
+  const vncScript = `pkill -x vncconfig 2>/dev/null; ` +
+    `DISPLAY=:${displayNum} vncconfig -nowin & ` +
     `websockify ${webFlag}${novncPort} localhost:${vncPort}`;
 
   try {
@@ -292,7 +302,7 @@ export async function startVNC(options = {}) {
 }
 
 /**
- * Stop VNC services (does NOT stop Xvfb — it's shared)
+ * Stop VNC services (does NOT stop Xtigervnc display — it's shared)
  */
 export async function stopVNC() {
   try {
@@ -301,14 +311,9 @@ export async function stopVNC() {
     // Already stopped or doesn't exist
   }
   try {
-    execSync('pkill -x x11vnc 2>/dev/null; pkill -x autocutsel 2>/dev/null', { stdio: 'pipe' });
+    execSync('pkill -x vncconfig 2>/dev/null', { stdio: 'pipe' });
   } catch {
-    // No x11vnc/autocutsel process running
-  }
-  try {
-    execSync('rm -f ~/.vnc/*.pid 2>/dev/null', { stdio: 'pipe' });
-  } catch {
-    // No stale PID files
+    // No vncconfig process running
   }
 }
 

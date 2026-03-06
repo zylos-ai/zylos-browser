@@ -84,12 +84,10 @@ const deps = [
     install: 'install-chrome',
     required: true,
   },
-  { name: 'Xvfb', check: 'which Xvfb', install: 'sudo apt-get install -y xvfb', required: true },
-  { name: 'x11vnc', check: 'which x11vnc', install: 'sudo apt-get install -y x11vnc', required: true },
+  { name: 'Xtigervnc', check: 'which Xtigervnc', install: 'sudo apt-get install -y tigervnc-standalone-server', required: true },
   { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', required: true },
   { name: 'noVNC web client', check: 'test -d /usr/share/novnc', install: 'sudo apt-get install -y novnc', required: true },
-  { name: 'xclip', check: 'which xclip', install: 'sudo apt-get install -y xclip', required: true },
-  { name: 'autocutsel', check: 'which autocutsel', install: 'sudo apt-get install -y autocutsel', required: true },
+  { name: 'xclip', check: 'which xclip', install: 'sudo apt-get install -y xclip', required: false },
   { name: 'xdotool', check: 'which xdotool', install: 'sudo apt-get install -y xdotool', required: false },
 ];
 
@@ -175,7 +173,8 @@ if (!fs.existsSync(vncPasswdFile)) {
   console.log('\nGenerating VNC password...');
   try {
     const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-    execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
+    const obfuscated = execSync('vncpasswd -f', { input: password + '\n', stdio: ['pipe', 'pipe', 'pipe'] });
+    fs.writeFileSync(vncPasswdFile, obfuscated, { mode: 0o600 });
     console.log(`  VNC password stored at ${vncPasswdFile}`);
   } catch (err) {
     console.log(`  Could not generate VNC password: ${err.message}`);
