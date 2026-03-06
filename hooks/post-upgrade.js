@@ -8,6 +8,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 const HOME = process.env.HOME;
 const DATA_DIR = path.join(HOME, 'zylos/components/browser');
@@ -105,6 +106,14 @@ const knowledgeBackup = path.join(DATA_DIR, 'knowledge.backup');
 if (fs.existsSync(knowledgeBackup)) {
   fs.rmSync(knowledgeBackup, { recursive: true });
   console.log('Cleaned up knowledge.backup/');
+}
+
+// Restart display infrastructure
+console.log('\nRestarting display infrastructure...');
+try {
+  execSync('zylos-browser display start', { stdio: 'inherit', timeout: 60000 });
+} catch {
+  console.log('  Auto-start failed. Start manually: zylos-browser display start');
 }
 
 console.log('\n[post-upgrade] Complete!');
