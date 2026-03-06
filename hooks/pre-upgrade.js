@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 const HOME = process.env.HOME;
 const DATA_DIR = path.join(HOME, 'zylos/components/browser');
@@ -55,6 +56,21 @@ if (fs.existsSync(sequencesDir)) {
   if (fileCount > 0) {
     console.log(`Sequences directory has ${fileCount} files (preserved via SKILL.md preserve field).`);
   }
+}
+
+// 4. Stop display services before code replacement
+console.log('\nStopping display services...');
+try {
+  execSync('zylos-browser display stop 2>/dev/null', { stdio: 'pipe', timeout: 30000 });
+  console.log('  Display services stopped.');
+} catch {
+  console.log('  Display services not running or already stopped.');
+}
+// Clean stale VNC PID files
+try {
+  execSync('rm -f ~/.vnc/*.pid 2>/dev/null', { stdio: 'pipe' });
+} catch {
+  // No PID files to clean
 }
 
 console.log('\n[pre-upgrade] Checks passed, proceeding with upgrade.');

@@ -1,6 +1,6 @@
 ---
 name: browser
-version: 0.1.0
+version: 0.1.2
 description: General-purpose browser automation capability
 type: capability
 
@@ -12,11 +12,13 @@ lifecycle:
     post-install: hooks/post-install.js
     pre-upgrade: hooks/pre-upgrade.js
     post-upgrade: hooks/post-upgrade.js
+    pre-uninstall: hooks/pre-uninstall.js
   preserve:
     - config.json
     - knowledge/
     - sequences/
     - screenshots/
+    - chrome-profile/
 
 upgrade:
   repo: zylos-ai/zylos-browser
@@ -51,7 +53,7 @@ General-purpose browser automation capability for Zylos agents.
 
 - agent-browser CLI (installed as npm dependency, linked to ~/zylos/bin/)
 - Chrome/Chromium with CDP enabled (auto-installed by post-install)
-- Xvfb, x11vnc, websockify (auto-installed by post-install)
+- Xtigervnc (TigerVNC), websockify (auto-installed by post-install)
 
 ## When to Use
 
