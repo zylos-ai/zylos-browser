@@ -307,6 +307,11 @@ export async function stopVNC() {
   } catch {
     // No x0vncserver process running
   }
+  try {
+    execSync('rm -f ~/.vnc/*.pid 2>/dev/null', { stdio: 'pipe' });
+  } catch {
+    // No stale PID files
+  }
 }
 
 /**
