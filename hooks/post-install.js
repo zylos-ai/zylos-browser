@@ -89,6 +89,7 @@ const deps = [
   { name: 'websockify (noVNC)', check: 'which websockify', install: 'sudo apt-get install -y websockify', required: true },
   { name: 'noVNC web client', check: 'test -d /usr/share/novnc', install: 'sudo apt-get install -y novnc', required: true },
   { name: 'xclip', check: 'which xclip', install: 'sudo apt-get install -y xclip', required: true },
+  { name: 'autocutsel', check: 'which autocutsel', install: 'sudo apt-get install -y autocutsel', required: true },
   { name: 'xdotool', check: 'which xdotool', install: 'sudo apt-get install -y xdotool', required: false },
 ];
 

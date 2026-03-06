@@ -20,8 +20,8 @@ try {
 
 // Kill any orphaned x0vncserver processes
 try {
-  execSync('pkill -x x0vncserver 2>/dev/null', { stdio: 'pipe' });
-  console.log('  Killed orphaned x0vncserver.');
+  execSync('pkill -x x0vncserver 2>/dev/null; pkill -x autocutsel 2>/dev/null', { stdio: 'pipe' });
+  console.log('  Killed orphaned x0vncserver/autocutsel.');
 } catch {
   // No orphaned processes
 }
