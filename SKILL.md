@@ -1,6 +1,6 @@
 ---
 name: browser
-version: 0.1.2
+version: 0.1.1
 description: General-purpose browser automation capability
 type: capability
 
