@@ -175,8 +175,7 @@ if (!fs.existsSync(vncPasswdFile)) {
   console.log('\nGenerating VNC password...');
   try {
     const password = crypto.randomBytes(6).toString('base64').slice(0, 8);
-    const obfuscated = execSync('vncpasswd -f', { input: password + '\n', stdio: ['pipe', 'pipe', 'pipe'] });
-    fs.writeFileSync(vncPasswdFile, obfuscated, { mode: 0o600 });
+    execSync(`x11vnc -storepasswd ${password} ${vncPasswdFile}`, { stdio: 'pipe' });
     console.log(`  VNC password stored at ${vncPasswdFile}`);
   } catch (err) {
     console.log(`  Could not generate VNC password: ${err.message}`);
