@@ -80,7 +80,13 @@ console.log('\nChecking dependencies...');
 const deps = [
   {
     name: 'Chrome/Chromium',
-    check: 'which google-chrome-stable || which google-chrome || which chromium-browser || which chromium',
+    // Use --version instead of `which` to validate the binary actually runs.
+    // On Ubuntu 22.04+, `chromium-browser` is a Snap wrapper that exits 1 outside
+    // Snap cgroups (e.g. SSH sessions, servers). `which chromium-browser` succeeds
+    // even though the binary is unusable, so the install step gets silently skipped
+    // and PM2 ends up crash-looping. Running --version catches this: the Snap wrapper
+    // exits 1, failing the check and triggering installChrome() (Google Chrome stable).
+    check: 'google-chrome-stable --version 2>/dev/null || google-chrome --version 2>/dev/null || chromium --version 2>/dev/null || chromium-browser --version 2>/dev/null',
     install: 'install-chrome',
     required: true,
   },
