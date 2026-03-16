@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-03-16
+
+### Fixed
+- **Chrome snap wrapper not detected**: Post-install hook used `which chromium-browser` (file existence check) to determine if Chrome was installed. On Ubuntu systems with snap-installed Chromium, `which` succeeds but the binary fails outside snap cgroups. Now uses `chromium-browser --version` (execution probe) to correctly detect broken snap wrappers and fall through to install `google-chrome-stable` (#31)
+
 ## [0.1.1] - 2026-03-06
 
 ### Fixed
