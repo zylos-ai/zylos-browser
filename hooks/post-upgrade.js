@@ -125,16 +125,11 @@ if (fs.existsSync(configPath)) {
   console.log('No config file found, skipping migrations.');
 }
 
-// Archive the pre-upgrade backup with a timestamp instead of deleting it,
-// so the prior knowledge dir is recoverable if the upgrade introduces a
-// regression. Owner is expected to clean up `knowledge.backup-*` dirs
-// manually once they're confident the upgrade is stable.
+// Clean up knowledge backup from pre-upgrade
 const knowledgeBackup = path.join(DATA_DIR, 'knowledge.backup');
 if (fs.existsSync(knowledgeBackup)) {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
-  const archived = path.join(DATA_DIR, `knowledge.backup-${ts}`);
-  fs.renameSync(knowledgeBackup, archived);
-  console.log(`Archived knowledge.backup/ → knowledge.backup-${ts}/`);
+  fs.rmSync(knowledgeBackup, { recursive: true });
+  console.log('Cleaned up knowledge.backup/');
 }
 
 // Restart display infrastructure
