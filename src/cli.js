@@ -304,9 +304,13 @@ async function displayCmd(cmdArgs) {
       const chrome = await display.ensureChrome();
       console.log(`Chrome ready (CDP port ${chrome.cdpPort})`);
       if (chrome.started) console.log('  Chrome was started.');
-      const vnc = await display.startVNC();
-      console.log(`VNC started on port ${vnc.vncPort}`);
-      if (vnc.url) console.log(`noVNC: ${vnc.url}`);
+      if (xvfb.display !== 'local') {
+        const vnc = await display.startVNC();
+        console.log(`VNC started on port ${vnc.vncPort}`);
+        if (vnc.url) console.log(`noVNC: ${vnc.url}`);
+      } else {
+        console.log('Using local Chrome window on macOS (no VNC/noVNC).');
+      }
       break;
     }
     case 'stop': {
@@ -366,10 +370,10 @@ Knowledge:
   knowledge domains            List domains
 
 Display:
-  display status               Show Xvfb/VNC status
-  display start                Start display + VNC
-  display stop                 Stop VNC
-  display vnc-url              Show noVNC URL
+  display status               Show local/VNC display status
+  display start                Start Chrome (and VNC on Linux)
+  display stop                 Stop managed browser services
+  display vnc-url              Show noVNC URL (Linux only)
 
 Global Options:
   --cdp <port>                 CDP port (default: 9222)

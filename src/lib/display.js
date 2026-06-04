@@ -15,6 +15,7 @@ import path from 'node:path';
 import { getConfig, DATA_DIR, ZYLOS_DIR } from './config.js';
 
 const execFile = promisify(execFileCb);
+const IS_DARWIN = process.platform === 'darwin';
 
 /** Chrome binary candidates in preference order */
 const CHROME_CANDIDATES = [
@@ -23,6 +24,15 @@ const CHROME_CANDIDATES = [
   'chromium-browser',
   'chromium',
 ];
+const MACOS_CHROME_CANDIDATES = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+];
+
+function shellQuote(value) {
+  return `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+}
 
 /**
  * Check if a PM2 process is running by name
@@ -68,6 +78,10 @@ export async function ensureDisplay(options = {}) {
   const resolution = options.resolution || config.display?.resolution || '1280x1024x24';
   const vncPort = Number(options.vncPort ?? config.vnc?.port ?? 5900);
   const display = `:${displayNum}`;
+
+  if (IS_DARWIN) {
+    return { display: 'local', started: false };
+  }
 
   const isRunning = await isPM2Running('zylos-xvfb');
   if (isRunning) {
@@ -120,6 +134,12 @@ export async function ensureDisplay(options = {}) {
  * @returns {string|null} Path to Chrome binary, or null if not found
  */
 export function findChromeBinary() {
+  if (IS_DARWIN) {
+    for (const candidate of MACOS_CHROME_CANDIDATES) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+
   for (const bin of CHROME_CANDIDATES) {
     try {
       const result = execSync(`which ${bin}`, { encoding: 'utf-8', stdio: 'pipe' }).trim();
@@ -149,16 +169,20 @@ export async function ensureChrome(options = {}) {
 
   const chromeBin = findChromeBinary();
   if (!chromeBin) {
-    throw new Error('Chrome/Chromium not found. Install with: sudo apt-get install -y chromium-browser');
+    throw new Error(IS_DARWIN
+      ? 'Chrome/Chromium not found. Install Google Chrome or Chromium in /Applications.'
+      : 'Chrome/Chromium not found. Install with: sudo apt-get install -y chromium-browser');
   }
+
+  fs.mkdirSync(path.join(DATA_DIR, 'chrome-profile'), { recursive: true });
 
   const chromeArgs = [
     `--remote-debugging-port=${cdpPort}`,
+    '--remote-debugging-address=127.0.0.1',
     `--user-data-dir=${path.join(DATA_DIR, 'chrome-profile')}`,
     '--no-first-run',
     '--test-type',
     '--no-default-browser-check',
-    '--no-sandbox',
     '--disable-background-networking',
     '--disable-sync',
     '--disable-translate',
@@ -168,17 +192,34 @@ export async function ensureChrome(options = {}) {
     '--window-size=1280,1024',
     '--window-position=0,0',
     'about:blank',
-  ].join(' ');
+  ];
 
-  // Use bash -c to launch Chrome so PM2 doesn't try to interpret it as Node.js
-  const script = `DISPLAY=:${displayNum} ${chromeBin} ${chromeArgs}`;
+  if (!IS_DARWIN) {
+    chromeArgs.splice(4, 0, '--no-sandbox');
+  }
 
   try {
-    await execFile('pm2', [
-      'start', 'bash',
-      '--name', 'zylos-chrome',
-      '--', '-c', script
-    ], { timeout: 15000 });
+    if (IS_DARWIN) {
+      const script = `exec ${shellQuote(chromeBin)} ${chromeArgs.map(shellQuote).join(' ')}`;
+      await execFile('pm2', [
+        'start',
+        'bash',
+        '--name', 'zylos-chrome',
+        '--',
+        '-lc',
+        script
+      ], { timeout: 15000 });
+    } else {
+      const script = `exec env DISPLAY=:${displayNum} ${shellQuote(chromeBin)} ${chromeArgs.map(shellQuote).join(' ')}`;
+      await execFile('pm2', [
+        'start',
+        'bash',
+        '--name', 'zylos-chrome',
+        '--',
+        '-lc',
+        script
+      ], { timeout: 15000 });
+    }
 
     // Wait for Chrome to be ready
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -206,12 +247,12 @@ export async function stopChrome() {
  */
 export async function getDisplayStatus() {
   const config = getConfig();
-  const display = `:${config.display?.number ?? 99}`;
+  const display = IS_DARWIN ? 'local' : `:${config.display?.number ?? 99}`;
 
   const [xvfb, chrome, vnc] = await Promise.all([
-    isPM2Running('zylos-xvfb'),
+    IS_DARWIN ? Promise.resolve(false) : isPM2Running('zylos-xvfb'),
     isPM2Running('zylos-chrome'),
-    isPM2Running('zylos-vnc')
+    IS_DARWIN ? Promise.resolve(false) : isPM2Running('zylos-vnc')
   ]);
 
   // noVNC runs as part of zylos-vnc (websockify), check port
@@ -260,6 +301,10 @@ export function getVNCUrl(config) {
  * @returns {{ vncPort: number, novncPort: number, url: string }}
  */
 export async function startVNC(options = {}) {
+  if (IS_DARWIN) {
+    throw new Error('VNC/noVNC mode is not supported on macOS. Use the local Chrome window instead.');
+  }
+
   const config = getConfig();
   const displayNum = Number(options.displayNumber ?? config.display?.number ?? 99);
   const vncPort = Number(options.vncPort ?? config.vnc?.port ?? 5900);
